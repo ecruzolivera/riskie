@@ -13,6 +13,9 @@ zbus = { version = "4", features = ["tokio"] }
 # System tray (ksni - StatusNotifierItem)
 ksni = "0.3"
 
+# Desktop notifications
+notify-rust = "4"
+
 # Error handling
 thiserror = "2"
 anyhow = "1"

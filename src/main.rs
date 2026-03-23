@@ -5,6 +5,7 @@ use futures::StreamExt;
 use tracing::{error, info};
 use zbus::Connection;
 
+mod notify;
 mod tray;
 mod udisks2;
 
@@ -85,12 +86,26 @@ async fn main() -> Result<()> {
                         let all_devices = client.enumerate_devices().await?;
                         if let Some(device) = all_devices.iter().find(|d| d.object_path == path) {
                             if device.is_removable() {
+                                let device_label = if device.label.is_empty() {
+                                    device.block_device.clone()
+                                } else {
+                                    device.label.clone()
+                                };
+
+                                notify::notify_device_added(&device_label);
+
                                 if !device.is_mounted() {
                                     info!("Automounting device: {} ({})", device.block_device, device.label);
-                                    if let Err(e) = client.mount_device(device.object_path.clone()).await {
-                                        error!("Failed to mount {}, {} @ {}: {}", device.label, device.block_device, device.object_path, e);
-                                    } else {
-                                        info!("Successfully mounted {}", device.block_device);
+                                    match client.mount_device(device.object_path.clone()).await {
+                                        Ok(mount_point) => {
+                                            info!("Successfully mounted {} at {}", device.block_device, mount_point);
+                                            notify::notify_mount_success(&device_label, &mount_point);
+                                        }
+                                        Err(e) => {
+                                            let error_msg = e.to_string();
+                                            error!("Failed to mount {}, {} @ {}: {}", device.label, device.block_device, device.object_path, error_msg);
+                                            notify::notify_mount_error(&device_label, &error_msg);
+                                        }
                                     }
                                 }
                                 {
@@ -133,9 +148,27 @@ async fn main() -> Result<()> {
                 match cmd {
                     tray::TrayCommand::Mount(path) => {
                         info!("Mount command for: {}", path);
-                        if let Err(e) = client.mount_device(path.clone()).await {
-                            error!("Failed to mount: {}", e);
+                        let device_label = {
+                            let guard = devices.read().ok();
+                            guard.and_then(|g| {
+                                g.iter().find(|d| d.object_path == path).map(|d| {
+                                    if d.label.is_empty() { d.block_device.clone() } else { d.label.clone() }
+                                })
+                            }).unwrap_or_else(|| path.clone())
+                        };
+
+                        match client.mount_device(path.clone()).await {
+                            Ok(mount_point) => {
+                                info!("Successfully mounted {} at {}", path, mount_point);
+                                notify::notify_mount_success(&device_label, &mount_point);
+                            }
+                            Err(e) => {
+                                let error_msg = e.to_string();
+                                error!("Failed to mount {}: {}", path, error_msg);
+                                notify::notify_mount_error(&device_label, &error_msg);
+                            }
                         }
+
                         if let Ok(all_devices) = client.enumerate_devices().await {
                             if let Some(device) = all_devices.iter().find(|d| d.object_path == path) {
                                 {
@@ -156,9 +189,27 @@ async fn main() -> Result<()> {
                     }
                     tray::TrayCommand::Unmount(path) => {
                         info!("Unmount command for: {}", path);
-                        if let Err(e) = client.unmount_device(path.clone()).await {
-                            error!("Failed to unmount: {}", e);
+                        let device_label = {
+                            let guard = devices.read().ok();
+                            guard.and_then(|g| {
+                                g.iter().find(|d| d.object_path == path).map(|d| {
+                                    if d.label.is_empty() { d.block_device.clone() } else { d.label.clone() }
+                                })
+                            }).unwrap_or_else(|| path.clone())
+                        };
+
+                        match client.unmount_device(path.clone()).await {
+                            Ok(()) => {
+                                info!("Successfully unmounted {}", path);
+                                notify::notify_unmount_success(&device_label);
+                            }
+                            Err(e) => {
+                                let error_msg = e.to_string();
+                                error!("Failed to unmount {}: {}", path, error_msg);
+                                notify::notify_unmount_error(&device_label, &error_msg);
+                            }
                         }
+
                         if let Ok(all_devices) = client.enumerate_devices().await {
                             if let Some(device) = all_devices.iter().find(|d| d.object_path == path) {
                                 {

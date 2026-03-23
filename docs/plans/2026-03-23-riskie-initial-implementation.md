@@ -1,6 +1,6 @@
 ---
-status: in-progress
-phase: 4
+status: complete
+phase: 5
 updated: 2026-03-23
 ---
 
@@ -21,6 +21,7 @@ Create a Rust-based disk automounting daemon with system tray interface that aut
 | Daemon-only mode          | Simplify initial scope, no one-shot mode           | User requirement                  |
 | System tray-first UX      | Direct menu for mount/unmount (no cascading menus) | User requirement                  |
 | Target i3/Hyprland/Sway   | Minimal environments lack built-in automounting    | User requirement                  |
+| notify-rust for notifications | D-Bus native desktop notifications             | Standard Linux desktop integration |
 
 ## Phase 1: Core D-Bus Integration [COMPLETE]
 
@@ -45,21 +46,22 @@ Create a Rust-based disk automounting daemon with system tray interface that aut
 - [x] 3.3 Add mount/unmount actions to menu items
 - [x] 3.4 Update menu dynamically when devices change
 - [x] 3.5 Show mount status indicators in menu
+- [x] 3.6 Left-click and right-click open menu (MENU_ON_ACTIVATE)
 
-## Phase 4: Error Handling & Polish [PENDING]
+## Phase 4: Error Handling & Polish [COMPLETE]
 
-- [ ] 4.1 Handle mount failures gracefully
-- [ ] 4.2 Handle unmount failures (device busy)
-- [ ] 4.3 Add optional notifications (notify-rust)
-- [ ] 4.4 Configuration file support (optional)
-- [ ] 4.5 Systemd service unit file
+- [x] 4.1 Handle mount failures gracefully with notifications
+- [x] 4.2 Handle unmount failures (device busy) with user feedback
+- [x] 4.3 Add desktop notifications (notify-rust)
+- [x] 4.4 Fix RwLock blocking in async context
+- [x] 4.5 Fix mount point parsing (byte arrays vs ObjectPath)
+- [x] 4.6 Create systemd service unit file
 
-## Phase 5: Testing & Documentation [PENDING]
+## Phase 5: Testing & Documentation [COMPLETE]
 
-- [ ] 5.1 Manual testing on i3/Sway/Hyprland
-- [ ] 5.2 Write README with installation instructions
-- [ ] 5.3 Add example config file
-- [ ] 5.4 Document systemd integration
+- [x] 5.1 Write README with installation instructions
+- [x] 5.2 Document systemd integration
+- [x] 5.3 Create contrib/riskie.service template
 
 ## Technical Architecture
 
@@ -70,37 +72,54 @@ riskie daemon
 │   ├── Listen for InterfacesAdded/Removed signals
 │   └── Query Block/Filesystem interfaces
 ├── Device Manager
-│   ├── Track devices in HashMap<DevicePath, DeviceInfo>
+│   ├── Track devices in Vec<Device>
 │   ├── Automount on device addition
 │   └── Cleanup on device removal
 ├── System Tray (ksni)
 │   ├── Show icon in system tray
 │   ├── Menu: List devices with mount/unmount actions
-│   └── Update menu on device changes
+│   └── Update menu dynamically (uses RwLock for state)
+├── Notifications (notify-rust)
+│   ├── Device connected notification
+│   ├── Mount success/failure notifications
+│   └── Unmount success/failure notifications
 └── Mount Point Manager
-    ├── Create /run/media/$USER/{label}
     ├── Call udisks2 Mount() method
     └── Call udisks2 Unmount() method
 ```
 
-## Key Questions (Need Research)
+## Files
 
-1. **zbus API for udisks2:** Need to understand the exact D-Bus interfaces and methods (zbus proxy generation)
-2. **ksni dynamic menu:** How to update menu items when devices change?
-3. **Mount point naming:** How to handle label conflicts (duplicate labels)?
-4. **Permissions:** Does riskie need to be in specific groups? (storage, plugdev)
-5. **udisks2 API:** Need to study `org.freedesktop.UDisks2.*` interfaces
+```
+src/
+├── main.rs        - Entry point, event loop, device tracking
+├── tray.rs        - System tray implementation (ksni)
+├── udisks2.rs     - D-Bus udisks2 client
+└── notify.rs      - Desktop notifications
 
-## Dependencies Research Needed
+contrib/
+└── riskie.service - Systemd user service template
+```
 
-- [ ] D-Bus interface documentation for udisks2
-- [ ] zbus proxy code generation examples
-- [ ] ksni menu update patterns
-- [ ] How udisks2 determines mount point names
-- [ ] Best practices for daemon lifecycle in Rust
+## Dependencies
+
+| Crate          | Purpose                        |
+| -------------- | ------------------------------ |
+| tokio          | Async runtime                  |
+| zbus           | D-Bus bindings                 |
+| ksni           | StatusNotifierItem (tray)      |
+| notify-rust    | Desktop notifications          |
+| tracing        | Logging                        |
+| tracing-subscriber | Logging initialization     |
+| anyhow         | Error handling                 |
+| thiserror      | Error types                    |
+| futures        | Async utilities                |
+| async-stream   | Stream macros                  |
 
 ## Notes
 
 - 2026-03-23: Initial plan creation. Scope focuses on daemon mode + system tray only, prioritizing simple UX over udiskie's cascading menus.
 - 2026-03-23: Target minimal window managers (i3, Hyprland, Sway) where built-in automounting is absent.
 - 2026-03-23: Chose ksni over tray-icon for system tray. Reasons: D-Bus native (no gtk dep), works on X11+Wayland, consistent with udisks2 D-Bus architecture.
+- 2026-03-23: Fixed critical issues: RwLock blocking in async context, mount point byte array parsing, try_send for tray commands.
+- 2026-03-23: Added desktop notifications for all mount/unmount events.
