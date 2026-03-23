@@ -190,15 +190,22 @@ fn get_property_bool(props: &std::collections::HashMap<String, OwnedValue>, key:
 
 fn get_property_mount_points(props: &std::collections::HashMap<String, OwnedValue>) -> Option<Vec<String>> {
     props.get("MountPoints").and_then(|v| {
-        // Try as array of ObjectPath
         if let Ok(paths) = v.downcast_ref::<zbus::zvariant::Array>() {
             let mut result = Vec::new();
             for item in paths.iter() {
-                if let Ok(path) = item.downcast_ref::<zbus::zvariant::ObjectPath>() {
-                    result.push(path.to_string());
+                if let Ok(bytes) = item.downcast_ref::<zbus::zvariant::Array>() {
+                    let path: String = bytes.iter()
+                        .filter_map(|b| b.downcast_ref::<u8>().ok())
+                        .map(|b| b as char)
+                        .collect();
+                    if !path.is_empty() {
+                        result.push(path);
+                    }
                 }
             }
-            return Some(result);
+            if !result.is_empty() {
+                return Some(result);
+            }
         }
         None
     })
