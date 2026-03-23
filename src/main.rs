@@ -1,7 +1,6 @@
 use anyhow::Result;
 use futures::StreamExt;
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use tracing::{info, error};
 use zbus::Connection;
 
@@ -23,7 +22,7 @@ async fn main() -> Result<()> {
     let devices: Arc<RwLock<Vec<udisks2::Device>>> = Arc::new(RwLock::new(Vec::new()));
     
     {
-        let mut devices_guard = devices.write().await;
+        let mut devices_guard = devices.write().unwrap();
         let all_devices = udisks2_client.enumerate_devices().await?;
         for device in all_devices {
             if device.is_removable() {
@@ -61,11 +60,12 @@ async fn main() -> Result<()> {
                                         info!("Successfully mounted {}", device.block_device);
                                     }
                                 }
-                                let mut guard = devices.write().await;
-                                guard.push(device.clone());
-                                drop(guard);
+                                {
+                                    let mut guard = devices.write().unwrap();
+                                    guard.push(device.clone());
+                                }
                                 let _ = handle.update(|tray| {
-                                    let guard = devices.blocking_read();
+                                    let guard = devices.read().unwrap();
                                     tray.devices = Arc::new(RwLock::new(guard.clone()));
                                 }).await;
                             }
@@ -79,11 +79,11 @@ async fn main() -> Result<()> {
                     Ok(path) => {
                         info!("Device removed: {}", path);
                         {
-                            let mut guard = devices.write().await;
+                            let mut guard = devices.write().unwrap();
                             guard.retain(|d| d.object_path != path);
                         }
                         let _ = handle.update(|tray| {
-                            let guard = devices.blocking_read();
+                            let guard = devices.read().unwrap();
                             tray.devices = Arc::new(RwLock::new(guard.clone()));
                         }).await;
                     }
@@ -99,15 +99,17 @@ async fn main() -> Result<()> {
                         }
                         if let Ok(all_devices) = client.enumerate_devices().await {
                             if let Some(device) = all_devices.iter().find(|d| d.object_path == path) {
-                                let mut guard = devices.write().await;
-                                if let Some(d) = guard.iter_mut().find(|d| d.object_path == path) {
-                                    d.filesystem_mount_points = device.filesystem_mount_points.clone();
+                                {
+                                    let mut guard = devices.write().unwrap();
+                                    if let Some(d) = guard.iter_mut().find(|d| d.object_path == path) {
+                                        d.filesystem_mount_points = device.filesystem_mount_points.clone();
+                                    }
                                 }
+                                let _ = handle.update(|tray| {
+                                    let guard = devices.read().unwrap();
+                                    tray.devices = Arc::new(RwLock::new(guard.clone()));
+                                }).await;
                             }
-                            let _ = handle.update(|tray| {
-                                let guard = devices.blocking_read();
-                                tray.devices = Arc::new(RwLock::new(guard.clone()));
-                            }).await;
                         }
                     }
                     tray::TrayCommand::Unmount(path) => {
@@ -117,15 +119,17 @@ async fn main() -> Result<()> {
                         }
                         if let Ok(all_devices) = client.enumerate_devices().await {
                             if let Some(device) = all_devices.iter().find(|d| d.object_path == path) {
-                                let mut guard = devices.write().await;
-                                if let Some(d) = guard.iter_mut().find(|d| d.object_path == path) {
-                                    d.filesystem_mount_points = device.filesystem_mount_points.clone();
+                                {
+                                    let mut guard = devices.write().unwrap();
+                                    if let Some(d) = guard.iter_mut().find(|d| d.object_path == path) {
+                                        d.filesystem_mount_points = device.filesystem_mount_points.clone();
+                                    }
                                 }
+                                let _ = handle.update(|tray| {
+                                    let guard = devices.read().unwrap();
+                                    tray.devices = Arc::new(RwLock::new(guard.clone()));
+                                }).await;
                             }
-                            let _ = handle.update(|tray| {
-                                let guard = devices.blocking_read();
-                                tray.devices = Arc::new(RwLock::new(guard.clone()));
-                            }).await;
                         }
                     }
                     tray::TrayCommand::Exit => {

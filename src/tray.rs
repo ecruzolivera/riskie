@@ -1,5 +1,5 @@
-use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
+use std::sync::{Arc, RwLock};
+use tokio::sync::mpsc;
 use ksni::TrayMethods;
 use crate::udisks2::Device;
 
@@ -34,7 +34,7 @@ impl ksni::Tray for TrayState {
     fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
         use ksni::menu::*;
         
-        let devices_guard = self.devices.blocking_read();
+        let devices_guard = self.devices.read().unwrap();
         let mut items: Vec<ksni::MenuItem<Self>> = Vec::new();
         
         if devices_guard.is_empty() {
