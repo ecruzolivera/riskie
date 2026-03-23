@@ -1,48 +1,81 @@
+use std::sync::{Arc, RwLock};
+
 use anyhow::Result;
 use futures::StreamExt;
-use std::sync::{Arc, RwLock};
-use tracing::{info, error};
+use tracing::{error, info};
 use zbus::Connection;
 
-mod udisks2;
 mod tray;
+mod udisks2;
+
+async fn update_tray_devices(handle: &tray::TrayHandle, devices: &Arc<RwLock<Vec<udisks2::Device>>>) {
+    let devices_clone = {
+        let guard = match devices.read() {
+            Ok(g) => g,
+            Err(e) => {
+                error!("Failed to acquire read lock: {}", e);
+                return;
+            }
+        };
+        guard.clone()
+    };
+
+    if handle
+        .update(move |tray| {
+            tray.devices = Arc::new(RwLock::new(devices_clone));
+        })
+        .await
+        .is_none()
+    {
+        error!("Failed to update tray: tray service unavailable");
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
-    
+
     info!("Starting riskie daemon...");
-    
+
     let connection = Connection::system().await?;
     info!("Connected to system D-Bus");
-    
+
     let udisks2_client = udisks2::Client::new(&connection).await?;
     info!("Connected to udisks2");
-    
+
     let devices: Arc<RwLock<Vec<udisks2::Device>>> = Arc::new(RwLock::new(Vec::new()));
-    
+
+    let all_devices = udisks2_client.enumerate_devices().await?;
     {
-        let mut devices_guard = devices.write().unwrap();
-        let all_devices = udisks2_client.enumerate_devices().await?;
+        let mut devices_guard = match devices.write() {
+            Ok(g) => g,
+            Err(e) => {
+                error!("Failed to acquire write lock: {}", e);
+                return Err(anyhow::anyhow!("Failed to acquire write lock: {}", e));
+            }
+        };
         for device in all_devices {
             if device.is_removable() {
-                info!("Found removable device: {} ({})", device.block_device, device.label);
+                info!(
+                    "Found removable device: {} ({})",
+                    device.block_device, device.label
+                );
                 devices_guard.push(device);
             }
         }
     }
-    
+
     let client = udisks2::Client::new(&connection).await?;
     let mut device_added = client.subscribe_device_added().await?;
     let mut device_removed = client.subscribe_device_removed().await?;
-    
+
     let (command_tx, mut command_rx) = tokio::sync::mpsc::channel::<tray::TrayCommand>(16);
-    
+
     let handle = tray::run_tray(devices.clone(), command_tx.clone()).await?;
     info!("System tray initialized");
-    
+
     info!("Listening for device events...");
-    
+
     loop {
         tokio::select! {
             Some(result) = device_added.next() => {
@@ -61,13 +94,16 @@ async fn main() -> Result<()> {
                                     }
                                 }
                                 {
-                                    let mut guard = devices.write().unwrap();
+                                    let mut guard = match devices.write() {
+                                        Ok(g) => g,
+                                        Err(e) => {
+                                            error!("Failed to acquire write lock: {}", e);
+                                            continue;
+                                        }
+                                    };
                                     guard.push(device.clone());
                                 }
-                                let _ = handle.update(|tray| {
-                                    let guard = devices.read().unwrap();
-                                    tray.devices = Arc::new(RwLock::new(guard.clone()));
-                                }).await;
+                                update_tray_devices(&handle, &devices).await;
                             }
                         }
                     }
@@ -79,13 +115,16 @@ async fn main() -> Result<()> {
                     Ok(path) => {
                         info!("Device removed: {}", path);
                         {
-                            let mut guard = devices.write().unwrap();
+                            let mut guard = match devices.write() {
+                                Ok(g) => g,
+                                Err(e) => {
+                                    error!("Failed to acquire write lock: {}", e);
+                                    continue;
+                                }
+                            };
                             guard.retain(|d| d.object_path != path);
                         }
-                        let _ = handle.update(|tray| {
-                            let guard = devices.read().unwrap();
-                            tray.devices = Arc::new(RwLock::new(guard.clone()));
-                        }).await;
+                        update_tray_devices(&handle, &devices).await;
                     }
                     Err(e) => error!("Error receiving device removed event: {}", e),
                 }
@@ -100,15 +139,18 @@ async fn main() -> Result<()> {
                         if let Ok(all_devices) = client.enumerate_devices().await {
                             if let Some(device) = all_devices.iter().find(|d| d.object_path == path) {
                                 {
-                                    let mut guard = devices.write().unwrap();
+                                    let mut guard = match devices.write() {
+                                        Ok(g) => g,
+                                        Err(e) => {
+                                            error!("Failed to acquire write lock: {}", e);
+                                            continue;
+                                        }
+                                    };
                                     if let Some(d) = guard.iter_mut().find(|d| d.object_path == path) {
                                         d.filesystem_mount_points = device.filesystem_mount_points.clone();
                                     }
                                 }
-                                let _ = handle.update(|tray| {
-                                    let guard = devices.read().unwrap();
-                                    tray.devices = Arc::new(RwLock::new(guard.clone()));
-                                }).await;
+                                update_tray_devices(&handle, &devices).await;
                             }
                         }
                     }
@@ -120,15 +162,18 @@ async fn main() -> Result<()> {
                         if let Ok(all_devices) = client.enumerate_devices().await {
                             if let Some(device) = all_devices.iter().find(|d| d.object_path == path) {
                                 {
-                                    let mut guard = devices.write().unwrap();
+                                    let mut guard = match devices.write() {
+                                        Ok(g) => g,
+                                        Err(e) => {
+                                            error!("Failed to acquire write lock: {}", e);
+                                            continue;
+                                        }
+                                    };
                                     if let Some(d) = guard.iter_mut().find(|d| d.object_path == path) {
                                         d.filesystem_mount_points = device.filesystem_mount_points.clone();
                                     }
                                 }
-                                let _ = handle.update(|tray| {
-                                    let guard = devices.read().unwrap();
-                                    tray.devices = Arc::new(RwLock::new(guard.clone()));
-                                }).await;
+                                update_tray_devices(&handle, &devices).await;
                             }
                         }
                     }
@@ -140,6 +185,6 @@ async fn main() -> Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }

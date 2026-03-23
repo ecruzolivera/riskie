@@ -10,6 +10,7 @@ pub struct Device {
     pub object_path: String,
     pub block_device: String,
     pub label: String,
+    #[allow(dead_code)]
     pub size: u64,
     pub filesystem_mount_points: Vec<String>,
     pub hint_auto: bool,
