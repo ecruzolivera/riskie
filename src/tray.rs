@@ -17,6 +17,8 @@ pub struct TrayState {
 }
 
 impl ksni::Tray for TrayState {
+    const MENU_ON_ACTIVATE: bool = true;
+
     fn id(&self) -> String {
         "riskie".into()
     }
@@ -76,13 +78,15 @@ impl ksni::Tray for TrayState {
                     StandardItem {
                         label,
                         icon_name: "drive-removable-media".into(),
-                        activate: Box::new(move |_tray| {
-                            let _ = tx.blocking_send(if is_mounted {
-                                TrayCommand::Unmount(object_path.clone())
-                            } else {
-                                TrayCommand::Mount(object_path.clone())
-                            });
-                        }),
+activate: Box::new(move |_tray| {
+                    if let Err(e) = tx.try_send(if is_mounted {
+                        TrayCommand::Unmount(object_path.clone())
+                    } else {
+                        TrayCommand::Mount(object_path.clone())
+                    }) {
+                        tracing::error!("Failed to send mount/unmount command: {}", e);
+                    }
+                }),
                         ..Default::default()
                     }
                     .into(),
@@ -98,7 +102,9 @@ impl ksni::Tray for TrayState {
                 label: "Exit".into(),
                 icon_name: "application-exit".into(),
                 activate: Box::new(move |_tray| {
-                    let _ = tx.blocking_send(TrayCommand::Exit);
+                    if let Err(e) = tx.try_send(TrayCommand::Exit) {
+                        tracing::error!("Failed to send exit command: {}", e);
+                    }
                 }),
                 ..Default::default()
             }
