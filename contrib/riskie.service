@@ -1,0 +1,21 @@
+[Unit]
+Description=Riskie Disk Automounter
+Documentation=https://github.com/yourusername/riskie
+After=graphical-session.target
+Requires=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/riskie
+Restart=on-failure
+RestartSec=5
+
+# Environment for logging
+Environment=RUST_LOG=info
+
+# Ensure D-Bus is available
+Requires=dbus.socket
+After=dbus.socket
+
+[Install]
+WantedBy=default.target
