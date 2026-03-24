@@ -54,6 +54,10 @@ cargo build --release
 
 The binary will be at `target/release/riskie`.
 
+**Build Requirements:**
+- Rust toolchain (cargo, rustc)
+- gettext (for compiling translations)
+
 ### Pre-built Binaries
 
 Download from [GitHub Releases](https://github.com/ecruzolivera/riskie/releases).
@@ -75,10 +79,11 @@ install -Dm644 contrib/systemd/riskie.service /usr/lib/systemd/user/
 
 ### Dependencies
 
+**Runtime:**
 - **udisks2**: Must be running (standard on most Linux distributions)
 - **D-Bus**: Required for communication with udisks2
-- **gettext**: For translations (runtime)
-- **Systemtray**: One of:
+- **gettext**: For loading translations at runtime
+- **System tray**: One of:
   - i3bar/Swaybar with tray support
   - Waybar
   - eww
