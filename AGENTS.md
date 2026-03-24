@@ -9,6 +9,7 @@ riskie is a Rust-based disk automounting daemon for Linux. It provides:
 - System tray interface using ksni (StatusNotifierItem)
 - Desktop notifications via notify-rust
 - Mount/unmount/eject functionality for devices
+- Internationalization (i18n) with gettext
 
 ## Build Commands
 
@@ -41,11 +42,14 @@ cargo build --release
 # Run all tests
 cargo test
 
-# Run specific test
+# Run specific test by name
 cargo test test_name
 
 # Run tests with verbose output
 cargo test -- --nocapture
+
+# Run tests for a specific module
+cargo test --lib module_name
 ```
 
 Note: This project has limited unit tests. Most functionality requires a running D-Bus session and udisks2 daemon.
@@ -86,6 +90,7 @@ mod udisks2;
 - Async functions use `async fn` with `-> Result<T>`
 - Helper types use descriptive names: `TrayCommand`, `TrayHandle`, `Device`
 - Constants use `SCREAMING_SNAKE_CASE`
+- Translation macros: `t!()` for singular, `tn!()` for plural
 
 ### Error Handling
 
@@ -130,6 +135,27 @@ some_async_operation(data).await;
 - Object paths use `zbus::zvariant::ObjectPath`
 - Use `OwnedValue` for extracted properties
 
+### Internationalization (i18n)
+
+- All user-facing strings must use the `t!()` macro
+- Import with `use crate::t;` at the top of files using translations
+- Translation files are in `po/` directory (`.po` format)
+- Build system compiles `.po` → `.mo` via `build.rs`
+
+```rust
+// Simple string
+t!("Exit")
+
+// String with one argument
+t!("Mount {}", device_label)
+
+// String with two arguments
+t!("{}\nMounted at {}", device_label, mount_point)
+
+// Plural forms
+tn!("1 device", "{} devices", count)
+```
+
 ### Logging
 
 - Use `tracing` crate with macros: `info!`, `error!`, `debug!`, `warn!`
@@ -147,9 +173,19 @@ some_async_operation(data).await;
 ```
 src/
 ├── main.rs      - Entry point, event loop, device tracking
+├── i18n.rs      - Internationalization module with t!() macro
 ├── tray.rs      - System tray implementation (ksni)
 ├── udisks2.rs   - D-Bus udisks2 client
 └── notify.rs    - Desktop notifications (notify-rust)
+
+po/
+├── riskie.pot   - Translation template
+├── en.po        - English translations
+└── es.po        - Spanish translations
+
+contrib/
+├── arch/        - AUR packaging (PKGBUILD)
+└── systemd/     - systemd user service file
 ```
 
 ## Key Dependencies
@@ -160,6 +196,7 @@ src/
 | zbus | D-Bus bindings for udisks2 |
 | ksni | StatusNotifierItem system tray |
 | notify-rust | Desktop notifications |
+| gettext-rs | Internationalization |
 | tracing | Logging |
 | anyhow | Error handling |
 
@@ -178,3 +215,4 @@ Use conventional commits:
 - `refactor:` for code refactoring
 - `docs:` for documentation
 - `chore:` for build/tooling changes
+- `style:` for formatting changes
