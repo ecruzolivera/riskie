@@ -1,5 +1,7 @@
 # riskie
 
+![Screenshot](docs/screenshot.png)
+
 A simple, opinionated disk automounting daemon for Linux written in Rust.
 
 ## Overview
