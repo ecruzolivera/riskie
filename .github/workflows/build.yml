@@ -4,15 +4,14 @@ on:
   push:
     branches:
       - master
-      - main
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Branch or tag to build'
+        description: "Branch or tag to build"
         required: false
-        default: ''
+        default: ""
 
 jobs:
   build:
