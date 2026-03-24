@@ -26,7 +26,7 @@ impl ksni::Tray for TrayState {
     }
 
     fn icon_name(&self) -> String {
-        "drive-removable-media".into()
+        "drive-removable-media-usb".into()
     }
 
     fn title(&self) -> String {
@@ -44,12 +44,14 @@ impl ksni::Tray for TrayState {
             Ok(g) => g,
             Err(e) => {
                 tracing::error!("Failed to acquire read lock for menu: {}", e);
-                return vec![StandardItem {
-                    label: "Error: unable to read devices".into(),
-                    enabled: false,
-                    ..Default::default()
-                }
-                .into()];
+                return vec![
+                    StandardItem {
+                        label: "Error: unable to read devices".into(),
+                        enabled: false,
+                        ..Default::default()
+                    }
+                    .into(),
+                ];
             }
         };
 
