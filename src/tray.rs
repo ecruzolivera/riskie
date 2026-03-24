@@ -116,6 +116,28 @@ impl ksni::Tray for TrayState {
                         }
                         .into(),
                     );
+
+                    if any_mounted {
+                        let drive_id_clone = drive_id.clone();
+                        let tx = self.command_tx.clone();
+                        let label = format!("Eject {}", drive_label);
+
+                        items.push(
+                            StandardItem {
+                                label,
+                                icon_name: "media-eject".into(),
+                                activate: Box::new(move |_tray| {
+                                    if let Err(e) =
+                                        tx.try_send(TrayCommand::EjectAll(drive_id_clone.clone()))
+                                    {
+                                        tracing::error!("Failed to send eject command: {}", e);
+                                    }
+                                }),
+                                ..Default::default()
+                            }
+                            .into(),
+                        );
+                    }
                 } else {
                     let submenu_label = format!("{} ({} partitions)", drive_label, total_count);
                     let drive_id_clone = drive_id.clone();

@@ -1,8 +1,8 @@
 use anyhow::Result;
 use futures::StreamExt;
-use zbus::Connection;
 use zbus::fdo::ObjectManagerProxy;
 use zbus::zvariant::{ObjectPath, OwnedValue};
+use zbus::Connection;
 
 /// Represents a block device from udisks2
 #[derive(Debug, Clone)]
