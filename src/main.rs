@@ -228,6 +228,71 @@ async fn main() -> Result<()> {
                             }
                         }
                     }
+                    tray::TrayCommand::EjectAll(drive_path) => {
+                        info!("Eject all command for drive: {}", drive_path);
+                        let partitions_to_unmount: Vec<(String, String)> = {
+                            let guard = match devices.read() {
+                                Ok(g) => g,
+                                Err(e) => {
+                                    error!("Failed to acquire read lock: {}", e);
+                                    continue;
+                                }
+                            };
+                            guard.iter()
+                                .filter(|d| d.drive_id() == drive_path && d.is_mounted())
+                                .map(|d| {
+                                    let label = if d.label.is_empty() { d.block_device.clone() } else { d.label.clone() };
+                                    (d.object_path.clone(), label)
+                                })
+                                .collect()
+                        };
+
+                        if partitions_to_unmount.is_empty() {
+                            info!("No mounted partitions to eject for drive: {}", drive_path);
+                            continue;
+                        }
+
+                        let mut all_success = true;
+                        for (partition_path, partition_label) in &partitions_to_unmount {
+                            info!("Unmounting partition: {}", partition_path);
+                            match client.unmount_device(partition_path.clone()).await {
+                                Ok(()) => {
+                                    info!("Successfully unmounted {}", partition_path);
+                                }
+                                Err(e) => {
+                                    let error_msg = e.to_string();
+                                    error!("Failed to unmount {}: {}", partition_path, error_msg);
+                                    notify::notify_unmount_error(partition_label.clone(), error_msg).await;
+                                    all_success = false;
+                                }
+                            }
+                        }
+
+                        if all_success && !partitions_to_unmount.is_empty() {
+                            let drive_label = partitions_to_unmount.first()
+                                .map(|(_, l)| l.clone())
+                                .unwrap_or_else(|| drive_path.clone());
+                            notify::notify_unmount_success(format!("{} (all partitions)", drive_label)).await;
+                        }
+
+                        if let Ok(all_devices) = client.enumerate_devices().await {
+                            {
+                                let mut guard = match devices.write() {
+                                    Ok(g) => g,
+                                    Err(e) => {
+                                        error!("Failed to acquire write lock: {}", e);
+                                        continue;
+                                    }
+                                };
+                                for device in &all_devices {
+                                    if let Some(d) = guard.iter_mut().find(|d| d.object_path == device.object_path) {
+                                        d.filesystem_mount_points = device.filesystem_mount_points.clone();
+                                    }
+                                }
+                            }
+                            update_tray_devices(&handle, &devices).await;
+                        }
+                    }
                     tray::TrayCommand::Exit => {
                         info!("Exit requested");
                         break;
