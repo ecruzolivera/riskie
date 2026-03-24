@@ -11,7 +11,8 @@ tokio = { version = "1", features = ["full"] }
 zbus = { version = "5", features = ["tokio"] }
 
 # System tray (ksni - StatusNotifierItem)
-ksni = "0.3"
+# Using git until 0.3.4 is released with zbus 5 compatibility fixes
+ksni = { git = "https://github.com/iovxw/ksni", branch = "master" }
 
 # Desktop notifications
 notify-rust = "4"

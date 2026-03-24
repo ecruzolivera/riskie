@@ -529,8 +529,7 @@ dependencies = [
 [[package]]
 name = "ksni"
 version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5b29c089f14ce24c5b25d9bdcb265413b5e0c3df0871823e0d96bd83bc52a24"
+source = "git+https://github.com/iovxw/ksni?branch=master#7fdbf0e15340c29988b4d88e442f2cae17af11fc"
 dependencies = [
  "futures-util",
  "pastey",

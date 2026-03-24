@@ -29,7 +29,11 @@ cargo build --release
 ./target/release/riskie
 ```
 
-**IMPORTANT**: During development, use `cargo check` and `cargo clippy` for correctness verification. Never run `cargo build --release` during iterative development - it's slow and unnecessary. Only build in release mode when preparing to test the actual binary.
+**CRITICAL - BUILD POLICY**:
+- **NEVER** run `cargo build` or `cargo build --release` during development
+- **ALWAYS** use `cargo check` and `cargo clippy` for correctness verification
+- Building is slow and unnecessary - `cargo check` verifies compilation without producing binaries
+- Only build when the user explicitly asks to test the actual binary on their system
 
 ## Test Commands
 

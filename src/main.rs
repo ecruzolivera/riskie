@@ -76,7 +76,7 @@ async fn main() -> Result<()> {
     let (command_tx, mut command_rx) = tokio::sync::mpsc::channel::<tray::TrayCommand>(16);
 
     let handle = tray::run_tray(devices.clone(), command_tx.clone()).await?;
-    info!("System tray initialized");
+    info!("System tray initialized: handle is_closed={}", handle.is_closed());
 
     info!("Listening for device events...");
 
