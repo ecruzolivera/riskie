@@ -1,8 +1,8 @@
 use anyhow::Result;
 use futures::StreamExt;
+use zbus::Connection;
 use zbus::fdo::ObjectManagerProxy;
 use zbus::zvariant::{ObjectPath, OwnedValue};
-use zbus::Connection;
 
 /// Represents a block device from udisks2
 #[derive(Debug, Clone)]
@@ -75,8 +75,12 @@ impl Client {
         let mut devices = Vec::new();
 
         for (object_path, interfaces) in managed_objects {
-            // Check if this object has the Block interface
-            if let Some(block_props) = interfaces.get("org.freedesktop.UDisks2.Block") {
+            // Only include devices with Filesystem interface (mountable partitions)
+            // Skip partition tables (whole disks) and other non-filesystem block devices
+            if let (Some(block_props), Some(_)) = (
+                interfaces.get("org.freedesktop.UDisks2.Block"),
+                interfaces.get("org.freedesktop.UDisks2.Filesystem"),
+            ) {
                 let block_device =
                     get_property_byte_array(block_props, "Device").unwrap_or_default();
                 let label = get_property_string(block_props, "IdLabel").unwrap_or_default();
