@@ -89,12 +89,27 @@ impl ksni::Tray for TrayState {
                 let total_count = partitions.len();
                 let any_mounted = mounted_count > 0;
 
+                items.push(
+                    StandardItem {
+                        label: drive_label.clone(),
+                        icon_name: "drive-removable-media".into(),
+                        enabled: false,
+                        ..Default::default()
+                    }
+                    .into(),
+                );
+
                 if total_count == 1 {
                     let device = partitions[0];
-                    let label = if device.is_mounted() {
-                        format!("Unmount {}", drive_label)
+                    let part_label = if device.label.is_empty() {
+                        device.block_device.clone()
                     } else {
-                        format!("Mount {}", drive_label)
+                        device.label.clone()
+                    };
+                    let label = if device.is_mounted() {
+                        format!("  Unmount {}", part_label)
+                    } else {
+                        format!("  Mount {}", part_label)
                     };
 
                     let object_path = device.object_path.clone();
@@ -104,7 +119,7 @@ impl ksni::Tray for TrayState {
                     items.push(
                         StandardItem {
                             label,
-                            icon_name: "drive-removable-media".into(),
+                            icon_name: "drive-harddisk".into(),
                             activate: Box::new(move |_tray| {
                                 if let Err(e) = tx.try_send(if is_mounted {
                                     TrayCommand::Unmount(object_path.clone())
@@ -122,7 +137,7 @@ impl ksni::Tray for TrayState {
                     if any_mounted {
                         let drive_id_clone = drive_id.clone();
                         let tx = self.command_tx.clone();
-                        let label = format!("Eject {}", drive_label);
+                        let label = format!("  Eject {}", drive_label);
 
                         items.push(
                             StandardItem {
@@ -141,19 +156,6 @@ impl ksni::Tray for TrayState {
                         );
                     }
                 } else {
-                    let submenu_label = format!("{} ({} partitions)", drive_label, total_count);
-                    let drive_id_clone = drive_id.clone();
-
-                    items.push(
-                        StandardItem {
-                            label: submenu_label,
-                            icon_name: "drive-removable-media".into(),
-                            enabled: false,
-                            ..Default::default()
-                        }
-                        .into(),
-                    );
-
                     for partition in &partitions {
                         let part_label = if partition.label.is_empty() {
                             partition.block_device.clone()
@@ -193,6 +195,7 @@ impl ksni::Tray for TrayState {
                     }
 
                     if any_mounted {
+                        let drive_id_clone = drive_id.clone();
                         let label = format!("  Eject {} (unmount all)", drive_label);
                         let tx = self.command_tx.clone();
 
