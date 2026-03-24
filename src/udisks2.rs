@@ -77,7 +77,8 @@ impl Client {
         for (object_path, interfaces) in managed_objects {
             // Check if this object has the Block interface
             if let Some(block_props) = interfaces.get("org.freedesktop.UDisks2.Block") {
-                let block_device = get_property_string(block_props, "Device").unwrap_or_default();
+                let block_device =
+                    get_property_byte_array(block_props, "Device").unwrap_or_default();
                 let label = get_property_string(block_props, "IdLabel").unwrap_or_default();
                 let size = get_property_u64(block_props, "Size").unwrap_or(0);
                 let hint_auto = get_property_bool(block_props, "HintAuto").unwrap_or(false);
@@ -190,6 +191,29 @@ fn get_property_string(
         } else {
             None
         }
+    })
+}
+
+fn get_property_byte_array(
+    props: &std::collections::HashMap<String, OwnedValue>,
+    key: &str,
+) -> Option<String> {
+    props.get(key).and_then(|v| {
+        if let Ok(arr) = v.downcast_ref::<zbus::zvariant::Array>() {
+            let mut bytes = Vec::new();
+            for item in arr.iter() {
+                if let Ok(b) = item.downcast_ref::<u8>() {
+                    if b != 0 {
+                        bytes.push(b);
+                    }
+                }
+            }
+            if !bytes.is_empty() {
+                let s: String = bytes.iter().map(|&b| b as char).collect();
+                return Some(s);
+            }
+        }
+        None
     })
 }
 

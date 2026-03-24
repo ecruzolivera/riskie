@@ -188,9 +188,9 @@ impl ksni::Tray for TrayState {
                             .into(),
                         );
                     }
-
-                    items.push(MenuItem::Separator);
                 }
+
+                items.push(MenuItem::Separator);
             }
         }
 
