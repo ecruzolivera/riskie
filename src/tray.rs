@@ -158,7 +158,10 @@ impl ksni::Tray for TrayState {
                                         } else {
                                             TrayCommand::Mount(object_path.clone())
                                         }) {
-                                            tracing::error!("Failed to send mount/unmount command: {}", e);
+                                            tracing::error!(
+                                                "Failed to send mount/unmount command: {}",
+                                                e
+                                            );
                                         }
                                     }),
                                     ..Default::default()
@@ -176,7 +179,9 @@ impl ksni::Tray for TrayState {
                                     label,
                                     icon_name: "media-eject".into(),
                                     activate: Box::new(move |_tray| {
-                                        if let Err(e) = tx.try_send(TrayCommand::EjectAll(drive_id_clone.clone())) {
+                                        if let Err(e) = tx
+                                            .try_send(TrayCommand::EjectAll(drive_id_clone.clone()))
+                                        {
                                             tracing::error!("Failed to send eject command: {}", e);
                                         }
                                     }),

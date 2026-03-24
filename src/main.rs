@@ -9,7 +9,10 @@ mod notify;
 mod tray;
 mod udisks2;
 
-async fn update_tray_devices(handle: &tray::TrayHandle, devices: &Arc<RwLock<Vec<udisks2::Device>>>) {
+async fn update_tray_devices(
+    handle: &tray::TrayHandle,
+    devices: &Arc<RwLock<Vec<udisks2::Device>>>,
+) {
     let devices_clone = {
         let guard = match devices.read() {
             Ok(g) => g,
@@ -84,42 +87,42 @@ async fn main() -> Result<()> {
                     Ok(path) => {
                         info!("Device added: {}", path);
                         let all_devices = client.enumerate_devices().await?;
-                        if let Some(device) = all_devices.iter().find(|d| d.object_path == path) {
-                            if device.is_removable() {
-                                let device_label = if device.label.is_empty() {
-                                    device.block_device.clone()
-                                } else {
-                                    device.label.clone()
-                                };
+                        if let Some(device) = all_devices.iter().find(|d| d.object_path == path)
+                            && device.is_removable()
+                        {
+                            let device_label = if device.label.is_empty() {
+                                device.block_device.clone()
+                            } else {
+                                device.label.clone()
+                            };
 
-                                notify::notify_device_added(device_label.clone()).await;
+                            notify::notify_device_added(device_label.clone()).await;
 
-                                if !device.is_mounted() {
-                                    info!("Automounting device: {} ({})", device.block_device, device.label);
-                                    match client.mount_device(device.object_path.clone()).await {
-                                        Ok(mount_point) => {
-                                            info!("Successfully mounted {} at {}", device.block_device, mount_point);
-                                            notify::notify_mount_success(device_label.clone(), mount_point).await;
-                                        }
-                                        Err(e) => {
-                                            let error_msg = e.to_string();
-                                            error!("Failed to mount {}, {} @ {}: {}", device.label, device.block_device, device.object_path, error_msg);
-                                            notify::notify_mount_error(device_label.clone(), error_msg).await;
-                                        }
+                            if !device.is_mounted() {
+                                info!("Automounting device: {} ({})", device.block_device, device.label);
+                                match client.mount_device(device.object_path.clone()).await {
+                                    Ok(mount_point) => {
+                                        info!("Successfully mounted {} at {}", device.block_device, mount_point);
+                                        notify::notify_mount_success(device_label.clone(), mount_point).await;
+                                    }
+                                    Err(e) => {
+                                        let error_msg = e.to_string();
+                                        error!("Failed to mount {}, {} @ {}: {}", device.label, device.block_device, device.object_path, error_msg);
+                                        notify::notify_mount_error(device_label.clone(), error_msg).await;
                                     }
                                 }
-                                {
-                                    let mut guard = match devices.write() {
-                                        Ok(g) => g,
-                                        Err(e) => {
-                                            error!("Failed to acquire write lock: {}", e);
-                                            continue;
-                                        }
-                                    };
-                                    guard.push(device.clone());
-                                }
-                                update_tray_devices(&handle, &devices).await;
                             }
+                            {
+                                let mut guard = match devices.write() {
+                                    Ok(g) => g,
+                                    Err(e) => {
+                                        error!("Failed to acquire write lock: {}", e);
+                                        continue;
+                                    }
+                                };
+                                guard.push(device.clone());
+                            }
+                            update_tray_devices(&handle, &devices).await;
                         }
                     }
                     Err(e) => error!("Error receiving device added event: {}", e),
@@ -169,22 +172,22 @@ async fn main() -> Result<()> {
                             }
                         }
 
-                        if let Ok(all_devices) = client.enumerate_devices().await {
-                            if let Some(device) = all_devices.iter().find(|d| d.object_path == path) {
-                                {
-                                    let mut guard = match devices.write() {
-                                        Ok(g) => g,
-                                        Err(e) => {
-                                            error!("Failed to acquire write lock: {}", e);
-                                            continue;
-                                        }
-                                    };
-                                    if let Some(d) = guard.iter_mut().find(|d| d.object_path == path) {
-                                        d.filesystem_mount_points = device.filesystem_mount_points.clone();
+                        if let Ok(all_devices) = client.enumerate_devices().await
+                            && let Some(device) = all_devices.iter().find(|d| d.object_path == path)
+                        {
+                            {
+                                let mut guard = match devices.write() {
+                                    Ok(g) => g,
+                                    Err(e) => {
+                                        error!("Failed to acquire write lock: {}", e);
+                                        continue;
                                     }
+                                };
+                                if let Some(d) = guard.iter_mut().find(|d| d.object_path == path) {
+                                    d.filesystem_mount_points = device.filesystem_mount_points.clone();
                                 }
-                                update_tray_devices(&handle, &devices).await;
                             }
+                            update_tray_devices(&handle, &devices).await;
                         }
                     }
                     tray::TrayCommand::Unmount(path) => {
@@ -210,22 +213,22 @@ async fn main() -> Result<()> {
                             }
                         }
 
-                        if let Ok(all_devices) = client.enumerate_devices().await {
-                            if let Some(device) = all_devices.iter().find(|d| d.object_path == path) {
-                                {
-                                    let mut guard = match devices.write() {
-                                        Ok(g) => g,
-                                        Err(e) => {
-                                            error!("Failed to acquire write lock: {}", e);
-                                            continue;
-                                        }
-                                    };
-                                    if let Some(d) = guard.iter_mut().find(|d| d.object_path == path) {
-                                        d.filesystem_mount_points = device.filesystem_mount_points.clone();
+                        if let Ok(all_devices) = client.enumerate_devices().await
+                            && let Some(device) = all_devices.iter().find(|d| d.object_path == path)
+                        {
+                            {
+                                let mut guard = match devices.write() {
+                                    Ok(g) => g,
+                                    Err(e) => {
+                                        error!("Failed to acquire write lock: {}", e);
+                                        continue;
                                     }
+                                };
+                                if let Some(d) = guard.iter_mut().find(|d| d.object_path == path) {
+                                    d.filesystem_mount_points = device.filesystem_mount_points.clone();
                                 }
-                                update_tray_devices(&handle, &devices).await;
                             }
+                            update_tray_devices(&handle, &devices).await;
                         }
                     }
                     tray::TrayCommand::EjectAll(drive_path) => {
