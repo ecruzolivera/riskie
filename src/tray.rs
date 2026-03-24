@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 use ksni::TrayMethods;
 use tokio::sync::mpsc;
 
+use crate::t;
 use crate::udisks2::Device;
 
 pub enum TrayCommand {
@@ -60,7 +61,7 @@ impl ksni::Tray for TrayState {
         if devices_guard.is_empty() {
             items.push(
                 StandardItem {
-                    label: "No removable devices".into(),
+                    label: t!("No removable devices"),
                     enabled: false,
                     ..Default::default()
                 }
@@ -107,9 +108,9 @@ impl ksni::Tray for TrayState {
                         device.label.clone()
                     };
                     let label = if device.is_mounted() {
-                        format!("  Unmount {}", part_label)
+                        format!("  {}", t!("Unmount {}", part_label))
                     } else {
-                        format!("  Mount {}", part_label)
+                        format!("  {}", t!("Mount {}", part_label))
                     };
 
                     let object_path = device.object_path.clone();
@@ -137,7 +138,7 @@ impl ksni::Tray for TrayState {
                     if any_mounted {
                         let drive_id_clone = drive_id.clone();
                         let tx = self.command_tx.clone();
-                        let label = format!("  Eject {}", drive_label);
+                        let label = format!("  {}", t!("Eject {}", drive_label));
 
                         items.push(
                             StandardItem {
@@ -163,9 +164,9 @@ impl ksni::Tray for TrayState {
                             partition.label.clone()
                         };
                         let label = if partition.is_mounted() {
-                            format!("  Unmount {}", part_label)
+                            format!("  {}", t!("Unmount {}", part_label))
                         } else {
-                            format!("  Mount {}", part_label)
+                            format!("  {}", t!("Mount {}", part_label))
                         };
 
                         let object_path = partition.object_path.clone();
@@ -196,7 +197,7 @@ impl ksni::Tray for TrayState {
 
                     if any_mounted {
                         let drive_id_clone = drive_id.clone();
-                        let label = format!("  Eject {} (unmount all)", drive_label);
+                        let label = format!("  {}", t!("Eject {}", drive_label));
                         let tx = self.command_tx.clone();
 
                         items.push(
@@ -226,7 +227,7 @@ impl ksni::Tray for TrayState {
         let tx = self.command_tx.clone();
         items.push(
             StandardItem {
-                label: "Exit".into(),
+                label: t!("Exit"),
                 icon_name: "application-exit".into(),
                 activate: Box::new(move |_tray| {
                     if let Err(e) = tx.try_send(TrayCommand::Exit) {

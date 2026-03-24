@@ -2,6 +2,8 @@
 name = "riskie"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+authors = ["Ernesto Cruz Olivera <ecruzolivera@gmail.com>"]
 
 [dependencies]
 # Async runtime
@@ -23,6 +25,9 @@ anyhow = "1"
 # Logging
 tracing = "0.1"
 tracing-subscriber = "0.3"
+
+# Localization
+gettext-rs = { version = "0.7", features = ["gettext-system"] }
 
 # Utilities
 futures = "0.3"

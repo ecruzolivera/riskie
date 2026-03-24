@@ -5,6 +5,7 @@ use futures::StreamExt;
 use tracing::{error, info};
 use zbus::Connection;
 
+mod i18n;
 mod notify;
 mod tray;
 mod udisks2;
@@ -38,6 +39,7 @@ async fn update_tray_devices(
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
+    i18n::init();
 
     info!("Starting riskie daemon...");
 

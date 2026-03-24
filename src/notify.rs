@@ -1,3 +1,4 @@
+use crate::t;
 use notify_rust::{Notification, Urgency};
 
 pub async fn notify_mount_success(device_label: String, mount_point: String) {
@@ -5,8 +6,8 @@ pub async fn notify_mount_success(device_label: String, mount_point: String) {
     let mount_point = mount_point.clone();
     tokio::task::spawn_blocking(move || {
         if let Err(e) = Notification::new()
-            .summary("Device Mounted")
-            .body(&format!("{}\nMounted at {}", device_label, mount_point))
+            .summary(&t!("Device Mounted"))
+            .body(&t!("{}\nMounted at {}", device_label, mount_point))
             .icon("drive-removable-media")
             .urgency(Urgency::Normal)
             .timeout(3000)
@@ -22,7 +23,7 @@ pub async fn notify_mount_success(device_label: String, mount_point: String) {
 pub async fn notify_mount_error(device_label: String, error: String) {
     tokio::task::spawn_blocking(move || {
         if let Err(e) = Notification::new()
-            .summary("Mount Failed")
+            .summary(&t!("Mount Failed"))
             .body(&format!("{}: {}", device_label, error))
             .icon("dialog-error")
             .urgency(Urgency::Critical)
@@ -39,8 +40,8 @@ pub async fn notify_mount_error(device_label: String, error: String) {
 pub async fn notify_unmount_success(device_label: String) {
     tokio::task::spawn_blocking(move || {
         if let Err(e) = Notification::new()
-            .summary("Device Unmounted")
-            .body(&format!("{} safely removed", device_label))
+            .summary(&t!("Device Unmounted"))
+            .body(&t!("{} safely removed", device_label))
             .icon("drive-removable-media")
             .urgency(Urgency::Normal)
             .timeout(3000)
@@ -56,7 +57,7 @@ pub async fn notify_unmount_success(device_label: String) {
 pub async fn notify_unmount_error(device_label: String, error: String) {
     tokio::task::spawn_blocking(move || {
         let msg = if error.contains("is busy") || error.contains("target is busy") {
-            format!(
+            t!(
                 "{}: Device is busy. Close any open files and try again.",
                 device_label
             )
@@ -65,7 +66,7 @@ pub async fn notify_unmount_error(device_label: String, error: String) {
         };
 
         if let Err(e) = Notification::new()
-            .summary("Unmount Failed")
+            .summary(&t!("Unmount Failed"))
             .body(&msg)
             .icon("dialog-error")
             .urgency(Urgency::Critical)
@@ -82,8 +83,8 @@ pub async fn notify_unmount_error(device_label: String, error: String) {
 pub async fn notify_device_added(device_label: String) {
     tokio::task::spawn_blocking(move || {
         if let Err(e) = Notification::new()
-            .summary("Device Detected")
-            .body(&format!("{} connected", device_label))
+            .summary(&t!("Device Detected"))
+            .body(&t!("{} connected", device_label))
             .icon("drive-removable-media")
             .urgency(Urgency::Low)
             .timeout(2000)

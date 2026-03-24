@@ -1,0 +1,13 @@
+[Unit]
+Description=Riskie - Disk Automounting Daemon
+Documentation=https://github.com/ecruzolivera/riskie
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/riskie
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
