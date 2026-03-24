@@ -134,6 +134,7 @@ journalctl --user -u riskie -f
 ## Desktop Notifications
 
 riskie sends desktop notifications for:
+
 - Device connected
 - Mount success/failure
 - Unmount success/failure
@@ -152,6 +153,7 @@ riskie supports multiple languages using gettext. Translations are loaded from `
 ### Adding a Translation
 
 1. Copy the template:
+
    ```bash
    cp po/riskie.pot po/{lang}.po
    ```
@@ -174,12 +176,12 @@ Currently, riskie is opinionated and does not support configuration files. All b
 
 ## Development Status
 
-**Phase 1: Core D-Bus Integration** - ✅ COMPLETE
-**Phase 2: Device Management** - ✅ COMPLETE
-**Phase 3: System Tray** - ✅ COMPLETE
-**Phase 4: Error Handling & Polish** - ✅ COMPLETE
-**Phase 5: Testing & Documentation** - ✅ COMPLETE
-**Phase 6: Packaging & i18n** - ✅ COMPLETE
+- **Phase 1: Core D-Bus Integration** - ✅ COMPLETE
+- **Phase 2: Device Management** - ✅ COMPLETE
+- **Phase 3: System Tray** - ✅ COMPLETE
+- **Phase 4: Error Handling & Polish** - ✅ COMPLETE
+- **Phase 5: Testing & Documentation** - ✅ COMPLETE
+- **Phase 6: Packaging & i18n** - ✅ COMPLETE
 
 ## Architecture
 
