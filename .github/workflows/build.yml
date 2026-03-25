@@ -42,11 +42,27 @@ jobs:
       - name: Build binary
         run: cargo build --release
 
-      - name: Upload binary artifact
+      - name: Compile translations
+        run: |
+          mkdir -p locale/en/LC_MESSAGES locale/es/LC_MESSAGES
+          msgfmt po/en.po -o locale/en/LC_MESSAGES/riskie.mo
+          msgfmt po/es.po -o locale/es/LC_MESSAGES/riskie.mo
+
+      - name: Create release tarball
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          mkdir -p riskie-${VERSION}/systemd
+          cp target/release/riskie riskie-${VERSION}/
+          cp -r locale riskie-${VERSION}/
+          cp contrib/systemd/riskie.service riskie-${VERSION}/systemd/
+          cp LICENSE riskie-${VERSION}/
+          tar -czvf riskie-${VERSION}-linux-x86_64.tar.gz riskie-${VERSION}
+
+      - name: Upload tarball artifact
         uses: actions/upload-artifact@v4
         with:
           name: riskie-linux-x86_64
-          path: target/release/riskie
+          path: riskie-*-linux-x86_64.tar.gz
 
   release:
     needs: build
@@ -55,14 +71,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download binary artifact
+      - name: Download tarball artifact
         uses: actions/download-artifact@v4
         with:
           name: riskie-linux-x86_64
-          path: ./binary
+          path: ./release
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: binary/riskie
+          files: release/*.tar.gz
           generate_release_notes: true
