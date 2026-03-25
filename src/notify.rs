@@ -96,3 +96,56 @@ pub async fn notify_device_added(device_label: String) {
     .await
     .unwrap_or_else(|e| tracing::error!("Failed to spawn notification task: {}", e));
 }
+
+#[allow(dead_code)]
+pub async fn notify_encrypted_device(device_label: String) {
+    tokio::task::spawn_blocking(move || {
+        if let Err(e) = Notification::new()
+            .summary(&t!("Encrypted device detected"))
+            .body(&t!("{} connected (encrypted)", device_label))
+            .icon("drive-removable-media")
+            .urgency(Urgency::Normal)
+            .timeout(3000)
+            .show()
+        {
+            tracing::error!("Failed to show notification: {}", e);
+        }
+    })
+    .await
+    .unwrap_or_else(|e| tracing::error!("Failed to spawn notification task: {}", e));
+}
+
+#[allow(dead_code)]
+pub async fn notify_unlock_success(device_label: String) {
+    tokio::task::spawn_blocking(move || {
+        if let Err(e) = Notification::new()
+            .summary(&t!("Device unlocked"))
+            .body(&t!("{} unlocked successfully", device_label))
+            .icon("drive-removable-media")
+            .urgency(Urgency::Normal)
+            .timeout(3000)
+            .show()
+        {
+            tracing::error!("Failed to show notification: {}", e);
+        }
+    })
+    .await
+    .unwrap_or_else(|e| tracing::error!("Failed to spawn notification task: {}", e));
+}
+
+pub async fn notify_unlock_error(device_label: String, error: String) {
+    tokio::task::spawn_blocking(move || {
+        if let Err(e) = Notification::new()
+            .summary(&t!("Unlock failed"))
+            .body(&t!("Failed to unlock {}: {}", device_label, error))
+            .icon("dialog-error")
+            .urgency(Urgency::Critical)
+            .timeout(5000)
+            .show()
+        {
+            tracing::error!("Failed to show notification: {}", e);
+        }
+    })
+    .await
+    .unwrap_or_else(|e| tracing::error!("Failed to spawn notification task: {}", e));
+}

@@ -314,6 +314,76 @@ async fn main() -> Result<()> {
                             update_tray_devices(&handle, &devices).await;
                         }
                     }
+                    tray::TrayCommand::Unlock(path) => {
+                        info!("Unlock command for: {}", path);
+                        let device_label = {
+                            let guard = devices.read().ok();
+                            guard.and_then(|g| {
+                                g.iter().find(|d| d.object_path == path).map(|d| {
+                                    if d.label.is_empty() { d.block_device.clone() } else { d.label.clone() }
+                                })
+                            }).unwrap_or_else(|| path.clone())
+                        };
+
+                        match password::prompt_password(&device_label) {
+                            Ok(Some(passphrase)) => {
+                                match encrypted::unlock_device(&connection, path.clone(), passphrase.clone()).await {
+                                    Ok(cleartext_path) => {
+                                        info!("Unlocked {} -> {}", path, cleartext_path);
+                                        // Refresh devices and update tray
+                                        if let Ok(all_devices) = client.enumerate_devices().await {
+                                            {
+                                                let mut guard = match devices.write() {
+                                                    Ok(g) => g,
+                                                    Err(e) => {
+                                                        error!("Failed to acquire write lock: {}", e);
+                                                        continue;
+                                                    }
+                                                };
+                                                *guard = all_devices;
+                                            }
+                                            update_tray_devices(&handle, &devices).await;
+                                        }
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to unlock {}: {}", path, e);
+                                        notify::notify_unlock_error(device_label.clone(), e.to_string()).await;
+                                    }
+                                }
+                            }
+                            Ok(None) => {
+                                info!("Password prompt cancelled for {}", path);
+                            }
+                            Err(e) => {
+                                error!("Failed to prompt password: {}", e);
+                            }
+                        }
+                    }
+                    tray::TrayCommand::Lock(path) => {
+                        info!("Lock command for: {}", path);
+                        match encrypted::lock_device(&connection, path.clone()).await {
+                            Ok(()) => {
+                                info!("Locked {}", path);
+                                // Refresh devices and update tray
+                                if let Ok(all_devices) = client.enumerate_devices().await {
+                                    {
+                                        let mut guard = match devices.write() {
+                                            Ok(g) => g,
+                                            Err(e) => {
+                                                error!("Failed to acquire write lock: {}", e);
+                                                continue;
+                                            }
+                                        };
+                                        *guard = all_devices;
+                                    }
+                                    update_tray_devices(&handle, &devices).await;
+                                }
+                            }
+                            Err(e) => {
+                                error!("Failed to lock {}: {}", path, e);
+                            }
+                        }
+                    }
                     tray::TrayCommand::Exit => {
                         info!("Exit requested");
                         break;

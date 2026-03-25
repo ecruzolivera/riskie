@@ -85,9 +85,9 @@ Add support for LUKS encrypted devices with password prompting via systemd-ask-p
   - `"Enter passphrase for {}"`
   - Files: `po/riskie.pot`, `po/en.po`, `po/es.po`
 
-## Phase 4: Event Loop Integration [PENDING]
+## Phase 4: Event Loop Integration [IN PROGRESS]
 
-- [ ] 4.1 Add new TrayCommand variants
+- [ ] **4.1 Add new TrayCommand variants** ← CURRENT
   - `Unlock(String)` - object path of encrypted device
   - `Lock(String)` - object path of cleartext device
   - File: `src/tray.rs`

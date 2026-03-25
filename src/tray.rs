@@ -7,9 +7,12 @@ use tokio::sync::mpsc;
 use crate::t;
 use crate::udisks2::Device;
 
+#[allow(dead_code)]
 pub enum TrayCommand {
     Mount(String),
     Unmount(String),
+    Unlock(String),
+    Lock(String),
     EjectAll(String),
     Exit,
 }
