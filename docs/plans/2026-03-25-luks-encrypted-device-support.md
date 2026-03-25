@@ -119,28 +119,34 @@ Add support for LUKS encrypted devices with password prompting via systemd-ask-p
   - `notify_unlock_error(label, error)` - "Failed to unlock"
   - File: `src/notify.rs`
 
-## Phase 5: Tray Menu Changes [IN PROGRESS]
+## Phase 5: Tray Menu Changes [COMPLETE]
 
-- [ ] **5.1 Update menu generation for DeviceType::Encrypted** ← CURRENT
-  - Show drive header with "(Encrypted)" label for locked devices
-  - Show "Unlock {device_name}" menu item
-  - Show "Eject" menu item
+- [x] 5.1 Update menu generation for DeviceType::Encrypted
+  - Show drive header for encrypted devices
+  - Show "Unlock {device_name}" menu item for locked devices
+  - Show cleartext partition under unlocked encrypted devices
+  - Show "Lock {device_name}" for unlocked devices
   - File: `src/tray.rs`
 
-- [ ] 5.2 Update menu generation for DeviceType::Cleartext
-  - Show under parent encrypted device
-  - Standard mount/unmount options
+- [x] 5.2 Update menu generation for DeviceType::Cleartext
+  - Cleartext devices shown under parent encrypted device
   - File: `src/tray.rs`
 
-- [ ] 5.3 Add icon differentiation for encrypted devices
-  - Use "drive-harddisk-encrypted" or similar icon
-  - Fall back to "drive-removable-media" if unavailable
-  - File: `src/tray.rs`
+- [x] 5.3 Handle DeviceType::Encrypted in device_added handler
+  - Show notification "Encrypted device detected"
+  - Add to tray (no auto-unlock)
+  - File: `src/main.rs`
 
-- [ ] 5.4 Add "Lock & Eject" menu item for unlocked encrypted devices
-  - Unmounts all partitions
-  - Locks the encrypted container
-  - File: `src/tray.rs`
+- [x] 5.4 Handle DeviceType::Cleartext in device_added handler
+  - Treat similar to Filesystem (automount)
+  - File: `src/main.rs`
+
+- [x] 5.5 Add icons for encrypted devices
+  - Use "system-lock-screen" for Lock/Unlock menu items
+  - Files: `src/tray.rs`
+
+- [x] 5.6 Call notify_unlock_success in Unlock handler
+  - File: `src/main.rs`
 
 ## Phase 6: Internationalization [PENDING]
 
