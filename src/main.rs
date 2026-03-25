@@ -114,8 +114,12 @@ async fn main() -> Result<()> {
                                         }
                                         Err(e) => {
                                             let error_msg = e.to_string();
-                                            error!("Failed to mount {}, {} @ {}: {}", device.label, device.block_device, device.object_path, error_msg);
-                                            notify::notify_mount_error(device_label.clone(), error_msg).await;
+                                            if error_msg.contains("AlreadyMounted") {
+                                                info!("Device {} already mounted by another process", device.block_device);
+                                            } else {
+                                                error!("Failed to mount {}, {} @ {}: {}", device.label, device.block_device, device.object_path, error_msg);
+                                                notify::notify_mount_error(device_label.clone(), error_msg).await;
+                                            }
                                         }
                                     }
                                 }
@@ -175,8 +179,12 @@ async fn main() -> Result<()> {
                             }
                             Err(e) => {
                                 let error_msg = e.to_string();
-                                error!("Failed to mount {}: {}", path, error_msg);
-                                notify::notify_mount_error(device_label.clone(), error_msg).await;
+                                if error_msg.contains("AlreadyMounted") {
+                                    info!("Device {} already mounted by another process", path);
+                                } else {
+                                    error!("Failed to mount {}: {}", path, error_msg);
+                                    notify::notify_mount_error(device_label.clone(), error_msg).await;
+                                }
                             }
                         }
 
