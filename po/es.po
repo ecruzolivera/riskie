@@ -58,3 +58,35 @@ msgstr "Dispositivo Detectado"
 
 msgid "{} connected"
 msgstr "{} conectado"
+
+#: src/password.rs
+msgid "Enter passphrase for {}"
+msgstr "Introduzca la frase de contraseña para {}"
+
+#: src/notify.rs
+msgid "Encrypted device detected"
+msgstr "Dispositivo cifrado detectado"
+
+msgid "{} connected (encrypted)"
+msgstr "{} conectado (cifrado)"
+
+msgid "Unlock {}"
+msgstr "Desbloquear {}"
+
+msgid "Lock {}"
+msgstr "Bloquear {}"
+
+msgid "Device unlocked"
+msgstr "Dispositivo desbloqueado"
+
+msgid "{} unlocked successfully"
+msgstr "{} desbloqueado exitosamente"
+
+msgid "Unlock failed"
+msgstr "Error al desbloquear"
+
+msgid "Failed to unlock {}: {}"
+msgstr "Error al desbloquear {}: {}"
+
+msgid "Lock & Eject"
+msgstr "Bloquear y Expulsar"

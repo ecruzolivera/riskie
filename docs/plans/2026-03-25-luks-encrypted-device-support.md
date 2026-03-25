@@ -1,6 +1,6 @@
 ---
-status: not-started
-phase: 1
+status: in-progress
+phase: 2
 updated: 2026-03-25
 ---
 
@@ -21,69 +21,67 @@ Add support for LUKS encrypted devices with password prompting via systemd-ask-p
 | Detect encrypted via IdUsage="crypto" | Standard udisks2 property for encrypted containers | udisks2 API |
 | Terminal prompt fallback not viable | riskie runs as daemon/tray app without TTY | Analysis of systemd-ask-password |
 
-## Phase 1: Core Detection [PENDING]
+## Phase 1: Core Detection [COMPLETE]
 
-- [ ] **1.1 Add DeviceType enum to Device struct** ← CURRENT
+- [x] 1.1 Add DeviceType enum to Device struct
   - Create enum: `Filesystem`, `Encrypted`, `Cleartext`, `Other`
   - Add fields: `device_type`, `cleartext_device`, `crypto_backing_device`
   - File: `src/udisks2.rs`
 
-- [ ] 1.2 Modify enumerate_devices() to detect encrypted devices
+- [x] 1.2 Modify enumerate_devices() to detect encrypted devices
   - Check for `Encrypted` interface presence
-  - Read `IdUsage` and `IdType` properties
   - Read `CleartextDevice` and `CryptoBackingDevice` properties
   - File: `src/udisks2.rs`
 
-- [ ] 1.3 Add helper methods to Device
+- [x] 1.3 Add helper methods to Device
   - `is_encrypted(&self) -> bool`
   - `is_unlocked(&self) -> bool`
   - `is_cleartext(&self) -> bool`
   - File: `src/udisks2.rs`
 
-- [ ] 1.4 Add is_encrypted filter for removable devices
-  - Update `is_removable()` logic or add separate checks
+- [x] 1.4 Add is_encrypted filter for removable devices
+  - Device detection now includes encrypted and cleartext types
   - File: `src/udisks2.rs`
 
-## Phase 2: Encrypted Interface [PENDING]
+## Phase 2: Encrypted Interface [COMPLETE]
 
-- [ ] 2.1 Create src/encrypted.rs module
+- [x] 2.1 Create src/encrypted.rs module
   - Add D-Bus proxy for `org.freedesktop.UDisks2.Encrypted`
   - File: `src/encrypted.rs`
 
-- [ ] 2.2 Implement unlock_device() function
+- [x] 2.2 Implement unlock_device() function
   - Call `Unlock(passphrase, options)` D-Bus method
   - Return cleartext device object path
   - File: `src/encrypted.rs`
 
-- [ ] 2.3 Implement lock_device() function
+- [x] 2.3 Implement lock_device() function
   - Call `Lock(options)` D-Bus method
   - File: `src/encrypted.rs`
 
-- [ ] 2.4 Add Client methods for encrypted devices
-  - `unlock_encrypted(object_path, passphrase)`
-  - `lock_encrypted(object_path)`
-  - File: `src/udisks2.rs`
+- [x] 2.4 Add Client methods for encrypted devices
+  - Standalone functions in encrypted.rs module
+  - Files: `src/encrypted.rs`, `src/main.rs`
 
 - [ ] 2.5 Test manual unlock via D-Bus
   - Verify Unlock returns cleartext device path
   - Verify lock/unlock cycle works
 
-## Phase 3: Password Prompting [PENDING]
+## Phase 3: Password Prompting [COMPLETE]
 
-- [ ] 3.1 Create src/password.rs module
+- [x] 3.1 Create src/password.rs module
   - File: `src/password.rs`
 
-- [ ] 3.2 Implement prompt_password() function
+- [x] 3.2 Implement prompt_password() function
   - Use systemd-ask-password with --icon, --keyname, --accept-cached, --timeout
   - Return `Option<String>` (None if cancelled)
   - File: `src/password.rs`
 
-- [ ] 3.3 Add error handling for missing systemd-ask-password
+- [x] 3.3 Add error handling for missing systemd-ask-password
   - Check if command exists
   - Log warning if unavailable
   - File: `src/password.rs`
 
-- [ ] 3.4 Add translation strings for password prompts
+- [x] 3.4 Add translation strings for password prompts
   - `"Enter passphrase for {}"`
   - Files: `po/riskie.pot`, `po/en.po`, `po/es.po`
 

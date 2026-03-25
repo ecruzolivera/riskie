@@ -58,3 +58,35 @@ msgstr "Device Detected"
 
 msgid "{} connected"
 msgstr "{} connected"
+
+#: src/password.rs
+msgid "Enter passphrase for {}"
+msgstr "Enter passphrase for {}"
+
+#: src/notify.rs
+msgid "Encrypted device detected"
+msgstr "Encrypted device detected"
+
+msgid "{} connected (encrypted)"
+msgstr "{} connected (encrypted)"
+
+msgid "Unlock {}"
+msgstr "Unlock {}"
+
+msgid "Lock {}"
+msgstr "Lock {}"
+
+msgid "Device unlocked"
+msgstr "Device unlocked"
+
+msgid "{} unlocked successfully"
+msgstr "{} unlocked successfully"
+
+msgid "Unlock failed"
+msgstr "Unlock failed"
+
+msgid "Failed to unlock {}: {}"
+msgstr "Failed to unlock {}: {}"
+
+msgid "Lock & Eject"
+msgstr "Lock & Eject"

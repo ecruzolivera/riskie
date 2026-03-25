@@ -4,6 +4,20 @@ use zbus::Connection;
 use zbus::fdo::ObjectManagerProxy;
 use zbus::zvariant::{ObjectPath, OwnedValue};
 
+/// Device type classification
+#[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
+pub enum DeviceType {
+    /// Regular filesystem partition (ext4, vfat, etc.)
+    Filesystem,
+    /// LUKS encrypted container (locked)
+    Encrypted,
+    /// Unlocked LUKS container (cleartext)
+    Cleartext,
+    /// Other block device (partition table, swap, etc.)
+    Other,
+}
+
 /// Represents a block device from udisks2
 #[derive(Debug, Clone)]
 pub struct Device {
@@ -16,6 +30,15 @@ pub struct Device {
     pub hint_auto: bool,
     pub hint_system: bool,
     pub drive: Option<String>,
+    /// Classification of device type
+    #[allow(dead_code)]
+    pub device_type: DeviceType,
+    /// For encrypted devices: path to unlocked cleartext device (or "/" if locked)
+    #[allow(dead_code)]
+    pub cleartext_device: Option<String>,
+    /// For cleartext devices: path to encrypted backing device
+    #[allow(dead_code)]
+    pub crypto_backing_device: Option<String>,
 }
 
 impl Device {
@@ -29,6 +52,31 @@ impl Device {
 
     pub fn drive_id(&self) -> &str {
         self.drive.as_deref().unwrap_or(&self.object_path)
+    }
+
+    /// Returns true if this is an encrypted (LUKS) device
+    #[allow(dead_code)]
+    pub fn is_encrypted(&self) -> bool {
+        self.device_type == DeviceType::Encrypted
+    }
+
+    /// Returns true if this is an unlocked LUKS container
+    #[allow(dead_code)]
+    pub fn is_cleartext(&self) -> bool {
+        self.device_type == DeviceType::Cleartext
+    }
+
+    /// Returns true if this encrypted device is currently unlocked
+    #[allow(dead_code)]
+    pub fn is_unlocked(&self) -> bool {
+        if self.device_type == DeviceType::Encrypted {
+            self.cleartext_device
+                .as_ref()
+                .map(|p| p != "/" && !p.is_empty())
+                .unwrap_or(false)
+        } else {
+            false
+        }
     }
 }
 
@@ -75,36 +123,63 @@ impl Client {
         let mut devices = Vec::new();
 
         for (object_path, interfaces) in managed_objects {
-            // Only include devices with Filesystem interface (mountable partitions)
-            // Skip partition tables (whole disks) and other non-filesystem block devices
-            if let (Some(block_props), Some(_)) = (
-                interfaces.get("org.freedesktop.UDisks2.Block"),
-                interfaces.get("org.freedesktop.UDisks2.Filesystem"),
-            ) {
-                let block_device =
-                    get_property_byte_array(block_props, "Device").unwrap_or_default();
-                let label = get_property_string(block_props, "IdLabel").unwrap_or_default();
-                let size = get_property_u64(block_props, "Size").unwrap_or(0);
-                let hint_auto = get_property_bool(block_props, "HintAuto").unwrap_or(false);
-                let hint_system = get_property_bool(block_props, "HintSystem").unwrap_or(true);
-                let drive = get_property_object_path(block_props, "Drive");
+            let block_props = match interfaces.get("org.freedesktop.UDisks2.Block") {
+                Some(props) => props,
+                None => continue,
+            };
 
-                let filesystem_mount_points = interfaces
-                    .get("org.freedesktop.UDisks2.Filesystem")
-                    .map(|fs_props| get_property_mount_points(fs_props).unwrap_or_default())
-                    .unwrap_or_default();
+            let filesystem_props = interfaces.get("org.freedesktop.UDisks2.Filesystem");
+            let encrypted_props = interfaces.get("org.freedesktop.UDisks2.Encrypted");
 
-                devices.push(Device {
-                    object_path: object_path.to_string(),
-                    block_device,
-                    label,
-                    size,
-                    filesystem_mount_points,
-                    hint_auto,
-                    hint_system,
-                    drive,
-                });
-            }
+            // Determine device type
+            let (device_type, cleartext_device, crypto_backing_device) =
+                if let Some(encrypted_props) = encrypted_props {
+                    // LUKS encrypted device
+                    let cleartext_dev =
+                        get_property_object_path(encrypted_props, "CleartextDevice");
+                    (DeviceType::Encrypted, cleartext_dev, None)
+                } else if let Some(_fs_props) = filesystem_props {
+                    // Check if this is a cleartext device (unlocked LUKS)
+                    let crypto_backing =
+                        get_property_object_path(block_props, "CryptoBackingDevice");
+                    if crypto_backing
+                        .as_ref()
+                        .map(|p| p != "/" && !p.is_empty())
+                        .unwrap_or(false)
+                    {
+                        (DeviceType::Cleartext, None, crypto_backing)
+                    } else {
+                        (DeviceType::Filesystem, None, None)
+                    }
+                } else {
+                    // No filesystem or encrypted interface - skip
+                    continue;
+                };
+
+            let block_device = get_property_byte_array(block_props, "Device").unwrap_or_default();
+            let label = get_property_string(block_props, "IdLabel").unwrap_or_default();
+            let size = get_property_u64(block_props, "Size").unwrap_or(0);
+            let hint_auto = get_property_bool(block_props, "HintAuto").unwrap_or(false);
+            let hint_system = get_property_bool(block_props, "HintSystem").unwrap_or(true);
+            let drive = get_property_object_path(block_props, "Drive");
+
+            let filesystem_mount_points = filesystem_props
+                .map(|fs_props| get_property_mount_points(fs_props).unwrap_or_default())
+                .unwrap_or_default();
+
+            devices.push(Device {
+                object_path: object_path.to_string(),
+                block_device,
+                label,
+                size,
+                filesystem_mount_points,
+                hint_auto,
+                hint_system,
+                drive,
+                device_type,
+                cleartext_device,
+                crypto_backing_device,
+            });
         }
 
         Ok(devices)

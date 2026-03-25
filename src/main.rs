@@ -5,8 +5,10 @@ use futures::StreamExt;
 use tracing::{error, info};
 use zbus::Connection;
 
+mod encrypted;
 mod i18n;
 mod notify;
+mod password;
 mod tray;
 mod udisks2;
 
