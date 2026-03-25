@@ -205,7 +205,14 @@ contrib/
 1. Make changes
 2. Run `cargo fmt`
 3. Run `cargo clippy --all-targets --all-features -- -D warnings`
-4. Commit with conventional commit message format
+4. **Wait for user confirmation before committing**
+5. Commit with conventional commit message format
+
+**CRITICAL - COMMIT POLICY**:
+- **NEVER** commit changes automatically without explicit user approval
+- **NEVER** run `git commit` or `git push` unless the user explicitly asks
+- **ALWAYS** wait for user confirmation after making changes
+- Present a summary of changes and ask before committing
 
 ## Commit Message Format
 
