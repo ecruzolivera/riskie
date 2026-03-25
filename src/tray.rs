@@ -17,6 +17,7 @@ pub enum TrayCommand {
 pub struct TrayState {
     pub devices: Arc<RwLock<Vec<Device>>>,
     pub command_tx: mpsc::Sender<TrayCommand>,
+    pub visible: bool,
 }
 
 impl ksni::Tray for TrayState {
@@ -35,7 +36,11 @@ impl ksni::Tray for TrayState {
     }
 
     fn status(&self) -> ksni::Status {
-        ksni::Status::Active
+        if self.visible {
+            ksni::Status::Active
+        } else {
+            ksni::Status::Passive
+        }
     }
 
     fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
@@ -248,10 +253,12 @@ pub type TrayHandle = ksni::Handle<TrayState>;
 pub async fn run_tray(
     devices: Arc<RwLock<Vec<Device>>>,
     command_tx: mpsc::Sender<TrayCommand>,
+    initial_visible: bool,
 ) -> Result<TrayHandle, ksni::Error> {
     let tray = TrayState {
         devices,
         command_tx,
+        visible: initial_visible,
     };
 
     let handle = tray.spawn().await?;

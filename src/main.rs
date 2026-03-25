@@ -14,7 +14,7 @@ async fn update_tray_devices(
     handle: &tray::TrayHandle,
     devices: &Arc<RwLock<Vec<udisks2::Device>>>,
 ) {
-    let devices_clone = {
+    let (devices_clone, has_devices) = {
         let guard = match devices.read() {
             Ok(g) => g,
             Err(e) => {
@@ -22,12 +22,13 @@ async fn update_tray_devices(
                 return;
             }
         };
-        guard.clone()
+        (guard.clone(), !guard.is_empty())
     };
 
     if handle
         .update(move |tray| {
             tray.devices = Arc::new(RwLock::new(devices_clone));
+            tray.visible = has_devices;
         })
         .await
         .is_none()
@@ -77,7 +78,12 @@ async fn main() -> Result<()> {
 
     let (command_tx, mut command_rx) = tokio::sync::mpsc::channel::<tray::TrayCommand>(16);
 
-    let handle = tray::run_tray(devices.clone(), command_tx.clone()).await?;
+    let initial_has_devices = {
+        let guard = devices.read().unwrap();
+        !guard.is_empty()
+    };
+
+    let handle = tray::run_tray(devices.clone(), command_tx.clone(), initial_has_devices).await?;
     info!("System tray initialized");
 
     info!("Listening for device events...");
