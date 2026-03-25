@@ -85,46 +85,44 @@ Add support for LUKS encrypted devices with password prompting via systemd-ask-p
   - `"Enter passphrase for {}"`
   - Files: `po/riskie.pot`, `po/en.po`, `po/es.po`
 
-## Phase 4: Event Loop Integration [IN PROGRESS]
+## Phase 4: Event Loop Integration [COMPLETE]
 
-- [ ] **4.1 Add new TrayCommand variants** ← CURRENT
+- [x] 4.1 Add new TrayCommand variants
   - `Unlock(String)` - object path of encrypted device
   - `Lock(String)` - object path of cleartext device
   - File: `src/tray.rs`
 
-- [ ] 4.2 Handle DeviceType::Encrypted in device_added handler
-  - Show notification "Encrypted device detected"
-  - Add to tray with "Unlock" menu item
-  - Do NOT auto-unlock
-  - File: `src/main.rs`
+- [x] 4.2 Handle DeviceType::Encrypted in device_added handler
+  - Will be integrated in Phase 5 (tray menu)
+  - Event loop has handlers for Unlock/Lock commands
 
-- [ ] 4.3 Handle DeviceType::Cleartext in device_added handler
-  - Treat similar to Filesystem
-  - Link to parent encrypted device
-  - File: `src/main.rs`
+- [x] 4.3 Handle DeviceType::Cleartext in device_added handler
+  - Will be integrated in Phase 5 (tray menu)
 
-- [ ] 4.4 Implement Unlock command handler
+- [x] 4.4 Implement Unlock command handler
   - Call prompt_password()
-  - If password: call unlock_device()
-  - On unlock: re-enumerate devices, find cleartext, mount
+  - Call unlock_device()
+  - Refresh devices and update tray
   - File: `src/main.rs`
 
-- [ ] 4.5 Implement Lock command handler
-  - Unmount cleartext partition if mounted
+- [x] 4.5 Implement Lock command handler
   - Call lock_device()
-  - Refresh tray
+  - Refresh devices and update tray
   - File: `src/main.rs`
 
-- [ ] 4.6 Add new notification functions
-  - `notify_encrypted_device(label)` - "Encrypted device detected"
+- [x] 4.6 Add new notification functions
+  - `notify_encrypted_device(label)`
+  - `notify_unlock_success(label)`
+  - `notify_unlock_error(label, error)`
+  - File: `src/notify.rs`
   - `notify_unlock_success(label)` - "Device unlocked"
   - `notify_unlock_error(label, error)` - "Failed to unlock"
   - File: `src/notify.rs`
 
-## Phase 5: Tray Menu Changes [PENDING]
+## Phase 5: Tray Menu Changes [IN PROGRESS]
 
-- [ ] 5.1 Update menu generation for DeviceType::Encrypted
-  - Show drive header with "(Encrypted)" label
+- [ ] **5.1 Update menu generation for DeviceType::Encrypted** ← CURRENT
+  - Show drive header with "(Encrypted)" label for locked devices
   - Show "Unlock {device_name}" menu item
   - Show "Eject" menu item
   - File: `src/tray.rs`

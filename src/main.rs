@@ -5,6 +5,8 @@ use futures::StreamExt;
 use tracing::{error, info};
 use zbus::Connection;
 
+use crate::udisks2::DeviceType;
+
 mod encrypted;
 mod i18n;
 mod notify;
@@ -105,37 +107,60 @@ async fn main() -> Result<()> {
                                     device.label.clone()
                                 };
 
-                                notify::notify_device_added(device_label.clone()).await;
-
-                                if !device.is_mounted() {
-                                    info!("Automounting device: {} ({})", device.block_device, device.label);
-                                    match client.mount_device(device.object_path.clone()).await {
-                                        Ok(mount_point) => {
-                                            info!("Successfully mounted {} at {}", device.block_device, mount_point);
-                                            notify::notify_mount_success(device_label.clone(), mount_point).await;
+                                match device.device_type {
+                                    DeviceType::Encrypted => {
+                                        // Encrypted device - show notification, add to tray (no automount)
+                                        notify::notify_encrypted_device(device_label.clone()).await;
+                                        {
+                                            let mut guard = match devices.write() {
+                                                Ok(g) => g,
+                                                Err(e) => {
+                                                    error!("Failed to acquire write lock: {}", e);
+                                                    continue;
+                                                }
+                                            };
+                                            guard.push(device.clone());
                                         }
-                                        Err(e) => {
-                                            let error_msg = e.to_string();
-                                            if error_msg.contains("AlreadyMounted") {
-                                                info!("Device {} already mounted by another process", device.block_device);
-                                            } else {
-                                                error!("Failed to mount {}, {} @ {}: {}", device.label, device.block_device, device.object_path, error_msg);
-                                                notify::notify_mount_error(device_label.clone(), error_msg).await;
+                                        update_tray_devices(&handle, &devices).await;
+                                    }
+                                    DeviceType::Filesystem | DeviceType::Cleartext => {
+                                        // Regular filesystem or unlocked cleartext - try automount
+                                        notify::notify_device_added(device_label.clone()).await;
+
+                                        if !device.is_mounted() {
+                                            info!("Automounting device: {} ({})", device.block_device, device.label);
+                                            match client.mount_device(device.object_path.clone()).await {
+                                                Ok(mount_point) => {
+                                                    info!("Successfully mounted {} at {}", device.block_device, mount_point);
+                                                    notify::notify_mount_success(device_label.clone(), mount_point).await;
+                                                }
+                                                Err(e) => {
+                                                    let error_msg = e.to_string();
+                                                    if error_msg.contains("AlreadyMounted") {
+                                                        info!("Device {} already mounted by another process", device.block_device);
+                                                    } else {
+                                                        error!("Failed to mount {}, {} @ {}: {}", device.label, device.block_device, device.object_path, error_msg);
+                                                        notify::notify_mount_error(device_label.clone(), error_msg).await;
+                                                    }
+                                                }
                                             }
                                         }
+                                        {
+                                            let mut guard = match devices.write() {
+                                                Ok(g) => g,
+                                                Err(e) => {
+                                                    error!("Failed to acquire write lock: {}", e);
+                                                    continue;
+                                                }
+                                            };
+                                            guard.push(device.clone());
+                                        }
+                                        update_tray_devices(&handle, &devices).await;
+                                    }
+                                    DeviceType::Other => {
+                                        // Skip unknown device types
                                     }
                                 }
-                                {
-                                    let mut guard = match devices.write() {
-                                        Ok(g) => g,
-                                        Err(e) => {
-                                            error!("Failed to acquire write lock: {}", e);
-                                            continue;
-                                        }
-                                    };
-                                    guard.push(device.clone());
-                                }
-                                update_tray_devices(&handle, &devices).await;
                             }
                         }
                     }
@@ -330,6 +355,7 @@ async fn main() -> Result<()> {
                                 match encrypted::unlock_device(&connection, path.clone(), passphrase.clone()).await {
                                     Ok(cleartext_path) => {
                                         info!("Unlocked {} -> {}", path, cleartext_path);
+                                        notify::notify_unlock_success(device_label.clone()).await;
                                         // Refresh devices and update tray
                                         if let Ok(all_devices) = client.enumerate_devices().await {
                                             {

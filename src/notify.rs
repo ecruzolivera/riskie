@@ -97,7 +97,6 @@ pub async fn notify_device_added(device_label: String) {
     .unwrap_or_else(|e| tracing::error!("Failed to spawn notification task: {}", e));
 }
 
-#[allow(dead_code)]
 pub async fn notify_encrypted_device(device_label: String) {
     tokio::task::spawn_blocking(move || {
         if let Err(e) = Notification::new()
@@ -115,7 +114,6 @@ pub async fn notify_encrypted_device(device_label: String) {
     .unwrap_or_else(|e| tracing::error!("Failed to spawn notification task: {}", e));
 }
 
-#[allow(dead_code)]
 pub async fn notify_unlock_success(device_label: String) {
     tokio::task::spawn_blocking(move || {
         if let Err(e) = Notification::new()

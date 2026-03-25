@@ -5,9 +5,8 @@ use ksni::TrayMethods;
 use tokio::sync::mpsc;
 
 use crate::t;
-use crate::udisks2::Device;
+use crate::udisks2::{Device, DeviceType};
 
-#[allow(dead_code)]
 pub enum TrayCommand {
     Mount(String),
     Unmount(String),
@@ -76,8 +75,23 @@ impl ksni::Tray for TrayState {
                 .into(),
             );
         } else {
+            // Build a map of cleartext devices by their crypto backing device
+            let mut cleartext_by_encrypted: HashMap<String, &Device> = HashMap::new();
+            for device in devices_guard.iter() {
+                if device.is_cleartext() {
+                    if let Some(ref backing) = device.crypto_backing_device {
+                        cleartext_by_encrypted.insert(backing.clone(), device);
+                    }
+                }
+            }
+
+            // Group devices by drive, excluding cleartext devices (they're shown under encrypted)
             let mut drive_groups: HashMap<String, Vec<&Device>> = HashMap::new();
             for device in devices_guard.iter() {
+                // Skip cleartext devices - they're shown under their encrypted parent
+                if device.is_cleartext() {
+                    continue;
+                }
                 let drive_id = device.drive_id().to_string();
                 drive_groups.entry(drive_id).or_default().push(device);
             }
@@ -108,122 +122,210 @@ impl ksni::Tray for TrayState {
                     .into(),
                 );
 
-                if total_count == 1 {
-                    let device = partitions[0];
-                    let part_label = if device.label.is_empty() {
-                        device.block_device.clone()
-                    } else {
-                        device.label.clone()
-                    };
-                    let label = if device.is_mounted() {
-                        format!("  {}", t!("Unmount {}", part_label))
-                    } else {
-                        format!("  {}", t!("Mount {}", part_label))
-                    };
+                // Handle each device in the drive
+                for device in &partitions {
+                    match device.device_type {
+                        DeviceType::Encrypted => {
+                            if device.is_unlocked() {
+                                // Show the cleartext device under this encrypted device
+                                if let Some(cleartext_path) = &device.cleartext_device {
+                                    // Find the cleartext device in our list
+                                    let cleartext_device = devices_guard
+                                        .iter()
+                                        .find(|d| &d.object_path == cleartext_path);
 
-                    let object_path = device.object_path.clone();
-                    let is_mounted = device.is_mounted();
+                                    if let Some(ct_device) = cleartext_device {
+                                        let part_label = if ct_device.label.is_empty() {
+                                            ct_device.block_device.clone()
+                                        } else {
+                                            ct_device.label.clone()
+                                        };
+                                        let label = if ct_device.is_mounted() {
+                                            format!("  {}", t!("Unmount {}", part_label))
+                                        } else {
+                                            format!("  {}", t!("Mount {}", part_label))
+                                        };
+
+                                        let ct_path = ct_device.object_path.clone();
+                                        let is_mounted = ct_device.is_mounted();
+                                        let tx = self.command_tx.clone();
+
+                                        items.push(
+                                            StandardItem {
+                                                label,
+                                                icon_name: "drive-harddisk".into(),
+                                                activate: Box::new(move |_tray| {
+                                                    if let Err(e) = tx.try_send(if is_mounted {
+                                                        TrayCommand::Unmount(ct_path.clone())
+                                                    } else {
+                                                        TrayCommand::Mount(ct_path.clone())
+                                                    }) {
+                                                        tracing::error!(
+                                                            "Failed to send mount/unmount command: {}",
+                                                            e
+                                                        );
+                                                    }
+                                                }),
+                                                ..Default::default()
+                                            }
+                                            .into(),
+                                        );
+                                    }
+                                }
+
+                                // Add "Lock" option for unlocked encrypted device
+                                let obj_path = device.object_path.clone();
+                                let tx = self.command_tx.clone();
+                                let lock_label = format!("  {}", t!("Lock {}", drive_label));
+
+                                items.push(
+                                    StandardItem {
+                                        label: lock_label,
+                                        icon_name: "system-lock-screen".into(),
+                                        activate: Box::new(move |_tray| {
+                                            if let Err(e) =
+                                                tx.try_send(TrayCommand::Lock(obj_path.clone()))
+                                            {
+                                                tracing::error!(
+                                                    "Failed to send lock command: {}",
+                                                    e
+                                                );
+                                            }
+                                        }),
+                                        ..Default::default()
+                                    }
+                                    .into(),
+                                );
+                            } else {
+                                // Locked encrypted device - show Unlock option
+                                let obj_path = device.object_path.clone();
+                                let tx = self.command_tx.clone();
+                                let unlock_label = format!("  {}", t!("Unlock {}", drive_label));
+
+                                items.push(
+                                    StandardItem {
+                                        label: unlock_label,
+                                        icon_name: "system-lock-screen".into(),
+                                        activate: Box::new(move |_tray| {
+                                            if let Err(e) =
+                                                tx.try_send(TrayCommand::Unlock(obj_path.clone()))
+                                            {
+                                                tracing::error!(
+                                                    "Failed to send unlock command: {}",
+                                                    e
+                                                );
+                                            }
+                                        }),
+                                        ..Default::default()
+                                    }
+                                    .into(),
+                                );
+                            }
+                        }
+                        DeviceType::Filesystem | DeviceType::Cleartext => {
+                            // Regular filesystem - handle as before
+                            if total_count == 1 {
+                                let part_label = if device.label.is_empty() {
+                                    device.block_device.clone()
+                                } else {
+                                    device.label.clone()
+                                };
+                                let label = if device.is_mounted() {
+                                    format!("  {}", t!("Unmount {}", part_label))
+                                } else {
+                                    format!("  {}", t!("Mount {}", part_label))
+                                };
+
+                                let object_path = device.object_path.clone();
+                                let is_mounted = device.is_mounted();
+                                let tx = self.command_tx.clone();
+
+                                items.push(
+                                    StandardItem {
+                                        label,
+                                        icon_name: "drive-harddisk".into(),
+                                        activate: Box::new(move |_tray| {
+                                            if let Err(e) = tx.try_send(if is_mounted {
+                                                TrayCommand::Unmount(object_path.clone())
+                                            } else {
+                                                TrayCommand::Mount(object_path.clone())
+                                            }) {
+                                                tracing::error!(
+                                                    "Failed to send mount/unmount command: {}",
+                                                    e
+                                                );
+                                            }
+                                        }),
+                                        ..Default::default()
+                                    }
+                                    .into(),
+                                );
+                            } else {
+                                // Multiple partitions - show each with partition label
+                                let part_label = if device.label.is_empty() {
+                                    device.block_device.clone()
+                                } else {
+                                    device.label.clone()
+                                };
+                                let label = if device.is_mounted() {
+                                    format!("  {}", t!("Unmount {}", part_label))
+                                } else {
+                                    format!("  {}", t!("Mount {}", part_label))
+                                };
+
+                                let object_path = device.object_path.clone();
+                                let is_mounted = device.is_mounted();
+                                let tx = self.command_tx.clone();
+
+                                items.push(
+                                    StandardItem {
+                                        label,
+                                        icon_name: "drive-harddisk".into(),
+                                        activate: Box::new(move |_tray| {
+                                            if let Err(e) = tx.try_send(if is_mounted {
+                                                TrayCommand::Unmount(object_path.clone())
+                                            } else {
+                                                TrayCommand::Mount(object_path.clone())
+                                            }) {
+                                                tracing::error!(
+                                                    "Failed to send mount/unmount command: {}",
+                                                    e
+                                                );
+                                            }
+                                        }),
+                                        ..Default::default()
+                                    }
+                                    .into(),
+                                );
+                            }
+                        }
+                        DeviceType::Other => {
+                            // Skip unknown device types
+                        }
+                    }
+                }
+
+                // Eject option (for drives with mounted partitions)
+                if any_mounted {
+                    let drive_id_clone = drive_id.clone();
                     let tx = self.command_tx.clone();
+                    let label = format!("  {}", t!("Eject {}", drive_label));
 
                     items.push(
                         StandardItem {
                             label,
-                            icon_name: "drive-harddisk".into(),
+                            icon_name: "media-eject".into(),
                             activate: Box::new(move |_tray| {
-                                if let Err(e) = tx.try_send(if is_mounted {
-                                    TrayCommand::Unmount(object_path.clone())
-                                } else {
-                                    TrayCommand::Mount(object_path.clone())
-                                }) {
-                                    tracing::error!("Failed to send mount/unmount command: {}", e);
+                                if let Err(e) =
+                                    tx.try_send(TrayCommand::EjectAll(drive_id_clone.clone()))
+                                {
+                                    tracing::error!("Failed to send eject command: {}", e);
                                 }
                             }),
                             ..Default::default()
                         }
                         .into(),
                     );
-
-                    if any_mounted {
-                        let drive_id_clone = drive_id.clone();
-                        let tx = self.command_tx.clone();
-                        let label = format!("  {}", t!("Eject {}", drive_label));
-
-                        items.push(
-                            StandardItem {
-                                label,
-                                icon_name: "media-eject".into(),
-                                activate: Box::new(move |_tray| {
-                                    if let Err(e) =
-                                        tx.try_send(TrayCommand::EjectAll(drive_id_clone.clone()))
-                                    {
-                                        tracing::error!("Failed to send eject command: {}", e);
-                                    }
-                                }),
-                                ..Default::default()
-                            }
-                            .into(),
-                        );
-                    }
-                } else {
-                    for partition in &partitions {
-                        let part_label = if partition.label.is_empty() {
-                            partition.block_device.clone()
-                        } else {
-                            partition.label.clone()
-                        };
-                        let label = if partition.is_mounted() {
-                            format!("  {}", t!("Unmount {}", part_label))
-                        } else {
-                            format!("  {}", t!("Mount {}", part_label))
-                        };
-
-                        let object_path = partition.object_path.clone();
-                        let is_mounted = partition.is_mounted();
-                        let tx = self.command_tx.clone();
-
-                        items.push(
-                            StandardItem {
-                                label,
-                                icon_name: "drive-harddisk".into(),
-                                activate: Box::new(move |_tray| {
-                                    if let Err(e) = tx.try_send(if is_mounted {
-                                        TrayCommand::Unmount(object_path.clone())
-                                    } else {
-                                        TrayCommand::Mount(object_path.clone())
-                                    }) {
-                                        tracing::error!(
-                                            "Failed to send mount/unmount command: {}",
-                                            e
-                                        );
-                                    }
-                                }),
-                                ..Default::default()
-                            }
-                            .into(),
-                        );
-                    }
-
-                    if any_mounted {
-                        let drive_id_clone = drive_id.clone();
-                        let label = format!("  {}", t!("Eject {}", drive_label));
-                        let tx = self.command_tx.clone();
-
-                        items.push(
-                            StandardItem {
-                                label,
-                                icon_name: "media-eject".into(),
-                                activate: Box::new(move |_tray| {
-                                    if let Err(e) =
-                                        tx.try_send(TrayCommand::EjectAll(drive_id_clone.clone()))
-                                    {
-                                        tracing::error!("Failed to send eject command: {}", e);
-                                    }
-                                }),
-                                ..Default::default()
-                            }
-                            .into(),
-                        );
-                    }
                 }
 
                 items.push(MenuItem::Separator);
