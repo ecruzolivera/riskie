@@ -15,6 +15,7 @@ riskie is a Rust implementation of udiskie, designed to be simpler and more opin
 - ✅ D-Bus integration with udisks2
 - ✅ Desktop notifications on mount/unmount events
 - ✅ Mount/unmount/eject from tray menu
+- ✅ LUKS encrypted device support (unlock/lock/eject)
 - ✅ Multi-language support (English, Spanish)
 - ✅ Target: i3, Hyprland, Sway (minimal window managers)
 
@@ -24,7 +25,7 @@ riskie is a Rust implementation of udiskie, designed to be simpler and more opin
 - **Opinionated defaults**:
   - Automount ALL removable devices
   - Mount to `/run/media/$USER/{label}` (FHS-compliant)
-  - No LUKS support (keeps it simple)
+  - LUKS encrypted devices: click-to-unlock with password prompt
 - **Daemon-only mode**: No one-shot mode, designed to run as a background service
 - **Modern Rust**: Better performance, smaller binary, async-first design
 - **Internationalization**: Built-in i18n support with gettext
@@ -133,8 +134,13 @@ journalctl --user -u riskie -f
 
 - **Left or Right click** on the tray icon to open the menu
 - Each drive shows as a header with mount/unmount actions
-- Click **Mount** to mount an unmounted partition
-- Click **Unmount** to unmount a mounted partition
+- For regular partitions:
+  - Click **Mount** to mount an unmounted partition
+  - Click **Unmount** to unmount a mounted partition
+- For encrypted devices:
+  - Click **Unlock** to unlock an encrypted device (prompts for password)
+  - Click **Lock** to lock an unlocked encrypted device
+  - Click **Eject** to safely eject an encrypted drive
 - Click **Eject** to safely remove the entire drive (unmounts all partitions)
 - Click **Exit** to quit the daemon
 
@@ -145,6 +151,9 @@ riskie sends desktop notifications for:
 - Device connected
 - Mount success/failure
 - Unmount success/failure
+- Encrypted device detected
+- Unlock success/failure
+- Drive ejected
 
 If unmount fails because the device is busy, the notification will suggest closing open files.
 
@@ -197,19 +206,26 @@ riskie daemon
 ├── D-Bus client (zbus)
 │   ├── Connect to udisks2
 │   ├── Listen for InterfacesAdded/Removed signals
-│   └── Query Block/Filesystem interfaces
+│   ├── Query Block/Filesystem/Encrypted interfaces
+│   └── Call Mount/Unmount/Lock/Unlock/Eject methods
 ├── Device Manager
 │   ├── Track devices in Vec<Device>
 │   ├── Automount on device addition
+│   ├── Handle encrypted device unlock/lock
 │   └── Cleanup on device removal
 ├── SystemTray (ksni)
 │   ├── Show icon in system tray
-│   ├── Menu: List devices with mount/unmount/eject actions
+│   ├── Menu: List devices with mount/unmount/eject/lock/unlock actions
 │   └── Update menu dynamically
 ├── Notifications (notify-rust)
 │   ├── Device connected
 │   ├── Mount success/failure
-│   └── Unmount success/failure
+│   ├── Unmount success/failure
+│   ├── Unlock success/failure
+│   └── Eject success/failure
+├── Password Prompt
+│   ├── systemd-ask-password (primary)
+│   └── zenity (fallback)
 ├── i18n (gettext-rs)
 │   ├── Load translations from /usr/share/locale
 │   └── Translate UI strings
