@@ -16,7 +16,7 @@ pub fn prompt_password(device_label: &str) -> Result<Option<String>> {
         .arg("--icon=drive-removable-media-usb")
         .arg("--keyname=riskie")
         .arg("--accept-cached")
-        .arg("--timeout=120")
+        .arg("--timeout=1")
         .arg(&message)
         .output();
 

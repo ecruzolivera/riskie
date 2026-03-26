@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::collections::HashMap;
 use zbus::Connection;
-use zbus::zvariant::ObjectPath;
+use zbus::zvariant::{ObjectPath, OwnedObjectPath};
 
 #[zbus::proxy(
     interface = "org.freedesktop.UDisks2.Encrypted",
@@ -12,7 +12,7 @@ trait Encrypted {
         &self,
         passphrase: &str,
         options: HashMap<&str, zbus::zvariant::Value<'_>>,
-    ) -> Result<String>;
+    ) -> Result<OwnedObjectPath>;
 
     async fn lock(&self, options: HashMap<&str, zbus::zvariant::Value<'_>>) -> Result<()>;
 }
@@ -27,7 +27,8 @@ pub async fn unlock_device(
     let path: ObjectPath<'static> = object_path.try_into()?;
     let encrypted = EncryptedProxy::new(connection, path).await?;
     let options = HashMap::new();
-    encrypted.unlock(&passphrase, options).await
+    let cleartext_path = encrypted.unlock(&passphrase, options).await?;
+    Ok(cleartext_path.to_string())
 }
 
 /// Lock an encrypted device

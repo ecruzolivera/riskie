@@ -366,7 +366,7 @@ async fn main() -> Result<()> {
                                                         continue;
                                                     }
                                                 };
-                                                *guard = all_devices;
+                                                *guard = all_devices.into_iter().filter(|d| d.is_removable()).collect();
                                             }
                                             update_tray_devices(&handle, &devices).await;
                                         }
@@ -400,7 +400,7 @@ async fn main() -> Result<()> {
                                                 continue;
                                             }
                                         };
-                                        *guard = all_devices;
+                                        *guard = all_devices.into_iter().filter(|d| d.is_removable()).collect();
                                     }
                                     update_tray_devices(&handle, &devices).await;
                                 }
