@@ -90,3 +90,12 @@ msgstr "Failed to unlock {}: {}"
 
 msgid "Lock & Eject"
 msgstr "Lock & Eject"
+
+msgid "Drive Ejected"
+msgstr "Drive Ejected"
+
+msgid "{} safely ejected"
+msgstr "{} safely ejected"
+
+msgid "Eject Failed"
+msgstr "Eject Failed"

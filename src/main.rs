@@ -561,6 +561,103 @@ async fn main() -> Result<()> {
                             }
                         }
                     }
+                    tray::TrayCommand::EjectEncrypted(path) => {
+                        info!("Eject encrypted command for: {}", path);
+
+                        // Find the encrypted device
+                        let device_info: Option<(String, Option<String>, Option<String>)> = {
+                            let guard = match devices.read() {
+                                Ok(g) => g,
+                                Err(e) => {
+                                    error!("Failed to acquire read lock: {}", e);
+                                    continue;
+                                }
+                            };
+                            guard.iter()
+                                .find(|d| d.object_path == path)
+                                .map(|d| {
+                                    let label = if d.label.is_empty() {
+                                        d.block_device.clone()
+                                    } else {
+                                        d.label.clone()
+                                    };
+                                    (label, d.drive.clone(), d.cleartext_device.clone())
+                                })
+                        };
+
+                        if let Some((device_label, drive_path, cleartext_path)) = device_info {
+                            // If unlocked, need to unmount and lock first
+                            if let Some(ct_path) = cleartext_path {
+                                // Find cleartext device to check if mounted
+                                let ct_info: Option<(String, bool)> = {
+                                    let guard = match devices.read() {
+                                        Ok(g) => g,
+                                        Err(e) => {
+                                            error!("Failed to acquire read lock: {}", e);
+                                            continue;
+                                        }
+                                    };
+                                    guard.iter()
+                                        .find(|d| d.object_path == ct_path)
+                                        .map(|d| {
+                                            let label = if d.label.is_empty() {
+                                                d.block_device.clone()
+                                            } else {
+                                                d.label.clone()
+                                            };
+                                            (label, d.is_mounted())
+                                        })
+                                };
+
+                                // Unmount if mounted
+                                if let Some((ct_label, is_mounted)) = ct_info {
+                                    if is_mounted {
+                                        info!("Unmounting cleartext device {} before eject", ct_path);
+                                        match client.unmount_device(ct_path.clone()).await {
+                                            Ok(()) => {
+                                                info!("Successfully unmounted {}", ct_path);
+                                                notify::notify_unmount_success(ct_label.clone()).await;
+                                            }
+                                            Err(e) => {
+                                                error!("Failed to unmount {}: {}", ct_path, e);
+                                                notify::notify_unmount_error(ct_label, e.to_string()).await;
+                                                continue;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Lock the encrypted device
+                                info!("Locking encrypted device before eject");
+                                match encrypted::lock_device(&connection, path.clone()).await {
+                                    Ok(()) => {
+                                        info!("Successfully locked {}", path);
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to lock {}: {}", path, e);
+                                        continue;
+                                    }
+                                }
+                            }
+
+                            // Eject the drive
+                            if let Some(drive) = drive_path {
+                                info!("Ejecting drive: {}", drive);
+                                match client.eject_drive(drive.clone()).await {
+                                    Ok(()) => {
+                                        info!("Successfully ejected {}", device_label);
+                                        notify::notify_eject_success(device_label).await;
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to eject {}: {}", device_label, e);
+                                        notify::notify_eject_error(device_label, e.to_string()).await;
+                                    }
+                                }
+                            } else {
+                                error!("No drive path for encrypted device {}", path);
+                            }
+                        }
+                    }
                     tray::TrayCommand::Exit => {
                         info!("Exit requested");
                         break;

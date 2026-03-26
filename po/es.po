@@ -90,3 +90,12 @@ msgstr "Error al desbloquear {}: {}"
 
 msgid "Lock & Eject"
 msgstr "Bloquear y Expulsar"
+
+msgid "Drive Ejected"
+msgstr "Unidad Expulsada"
+
+msgid "{} safely ejected"
+msgstr "{} expulsado de forma segura"
+
+msgid "Eject Failed"
+msgstr "Error al Expulsar"

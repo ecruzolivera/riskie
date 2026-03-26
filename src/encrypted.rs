@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::collections::HashMap;
-use zbus::Connection;
 use zbus::zvariant::{ObjectPath, OwnedObjectPath};
+use zbus::Connection;
 
 #[zbus::proxy(
     interface = "org.freedesktop.UDisks2.Encrypted",

@@ -12,6 +12,7 @@ pub enum TrayCommand {
     Unmount(String),
     Unlock(String),
     Lock(String),
+    EjectEncrypted(String),
     EjectAll(String),
     Exit,
 }
@@ -52,14 +53,12 @@ impl ksni::Tray for TrayState {
             Ok(g) => g,
             Err(e) => {
                 tracing::error!("Failed to acquire read lock for menu: {}", e);
-                return vec![
-                    StandardItem {
-                        label: "Error: unable to read devices".into(),
-                        enabled: false,
-                        ..Default::default()
-                    }
-                    .into(),
-                ];
+                return vec![StandardItem {
+                    label: "Error: unable to read devices".into(),
+                    enabled: false,
+                    ..Default::default()
+                }
+                .into()];
             }
         };
 
@@ -196,8 +195,32 @@ impl ksni::Tray for TrayState {
                                     }
                                     .into(),
                                 );
+
+                                // Add "Eject" option for unlocked encrypted device
+                                let obj_path = device.object_path.clone();
+                                let tx = self.command_tx.clone();
+                                let eject_label = format!("  {}", t!("Eject {}", drive_label));
+
+                                items.push(
+                                    StandardItem {
+                                        label: eject_label,
+                                        icon_name: "media-eject".into(),
+                                        activate: Box::new(move |_tray| {
+                                            if let Err(e) = tx.try_send(
+                                                TrayCommand::EjectEncrypted(obj_path.clone()),
+                                            ) {
+                                                tracing::error!(
+                                                    "Failed to send eject command: {}",
+                                                    e
+                                                );
+                                            }
+                                        }),
+                                        ..Default::default()
+                                    }
+                                    .into(),
+                                );
                             } else {
-                                // Locked encrypted device - show Unlock option
+                                // Locked encrypted device - show Unlock and Eject options
                                 let obj_path = device.object_path.clone();
                                 let tx = self.command_tx.clone();
                                 let unlock_label = format!("  {}", t!("Unlock {}", drive_label));
@@ -212,6 +235,29 @@ impl ksni::Tray for TrayState {
                                             {
                                                 tracing::error!(
                                                     "Failed to send unlock command: {}",
+                                                    e
+                                                );
+                                            }
+                                        }),
+                                        ..Default::default()
+                                    }
+                                    .into(),
+                                );
+
+                                let obj_path = device.object_path.clone();
+                                let tx = self.command_tx.clone();
+                                let eject_label = format!("  {}", t!("Eject {}", drive_label));
+
+                                items.push(
+                                    StandardItem {
+                                        label: eject_label,
+                                        icon_name: "media-eject".into(),
+                                        activate: Box::new(move |_tray| {
+                                            if let Err(e) = tx.try_send(
+                                                TrayCommand::EjectEncrypted(obj_path.clone()),
+                                            ) {
+                                                tracing::error!(
+                                                    "Failed to send eject command: {}",
                                                     e
                                                 );
                                             }

@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use gettextrs::{LocaleCategory, bind_textdomain_codeset, bindtextdomain, setlocale, textdomain};
+use gettextrs::{bind_textdomain_codeset, bindtextdomain, setlocale, textdomain, LocaleCategory};
 
 static I18N_INITIALIZED: OnceLock<()> = OnceLock::new();
 

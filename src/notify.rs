@@ -147,3 +147,37 @@ pub async fn notify_unlock_error(device_label: String, error: String) {
     .await
     .unwrap_or_else(|e| tracing::error!("Failed to spawn notification task: {}", e));
 }
+
+pub async fn notify_eject_success(device_label: String) {
+    tokio::task::spawn_blocking(move || {
+        if let Err(e) = Notification::new()
+            .summary(&t!("Drive Ejected"))
+            .body(&t!("{} safely ejected", device_label))
+            .icon("drive-removable-media")
+            .urgency(Urgency::Normal)
+            .timeout(3000)
+            .show()
+        {
+            tracing::error!("Failed to show notification: {}", e);
+        }
+    })
+    .await
+    .unwrap_or_else(|e| tracing::error!("Failed to spawn notification task: {}", e));
+}
+
+pub async fn notify_eject_error(device_label: String, error: String) {
+    tokio::task::spawn_blocking(move || {
+        if let Err(e) = Notification::new()
+            .summary(&t!("Eject Failed"))
+            .body(&format!("{}: {}", device_label, error))
+            .icon("dialog-error")
+            .urgency(Urgency::Critical)
+            .timeout(5000)
+            .show()
+        {
+            tracing::error!("Failed to show notification: {}", e);
+        }
+    })
+    .await
+    .unwrap_or_else(|e| tracing::error!("Failed to spawn notification task: {}", e));
+}

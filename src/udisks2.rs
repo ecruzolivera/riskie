@@ -1,8 +1,8 @@
 use anyhow::Result;
 use futures::StreamExt;
-use zbus::Connection;
 use zbus::fdo::ObjectManagerProxy;
 use zbus::zvariant::{ObjectPath, OwnedValue};
+use zbus::Connection;
 
 /// Device type classification
 #[derive(Debug, Clone, PartialEq)]
@@ -16,6 +16,17 @@ pub enum DeviceType {
     Cleartext,
     /// Other block device (partition table, swap, etc.)
     Other,
+}
+
+#[zbus::proxy(
+    interface = "org.freedesktop.UDisks2.Drive",
+    default_service = "org.freedesktop.UDisks2"
+)]
+trait Drive {
+    async fn eject(
+        &self,
+        options: std::collections::HashMap<&str, zbus::zvariant::Value<'_>>,
+    ) -> Result<()>;
 }
 
 /// Represents a block device from udisks2
@@ -253,6 +264,14 @@ impl Client {
         let filesystem = FilesystemProxy::new(&self.connection, path).await?;
         let options = std::collections::HashMap::new();
         filesystem.unmount(options).await
+    }
+
+    /// Eject a drive
+    pub async fn eject_drive(&self, drive_path: String) -> Result<()> {
+        let path: ObjectPath<'static> = ObjectPath::try_from(drive_path)?;
+        let drive = DriveProxy::new(&self.connection, path).await?;
+        let options = std::collections::HashMap::new();
+        drive.eject(options).await
     }
 }
 

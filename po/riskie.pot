@@ -90,3 +90,12 @@ msgstr ""
 
 msgid "Lock & Eject"
 msgstr ""
+
+msgid "Drive Ejected"
+msgstr ""
+
+msgid "{} safely ejected"
+msgstr ""
+
+msgid "Eject Failed"
+msgstr ""
