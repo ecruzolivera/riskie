@@ -140,12 +140,19 @@ async fn main() -> Result<()> {
                                         // Regular filesystem or unlocked cleartext - try automount
                                         notify::notify_device_added(device_label.clone()).await;
 
+                                        let mut mount_points = device.filesystem_mount_points.clone();
                                         if !device.is_mounted() {
                                             info!("Automounting device: {} ({})", device.block_device, device.label);
                                             match client.mount_device(device.object_path.clone()).await {
                                                 Ok(mount_point) => {
                                                     info!("Successfully mounted {} at {}", device.block_device, mount_point);
                                                     notify::notify_mount_success(device_label.clone(), mount_point).await;
+                                                    // Refresh to get updated mount points
+                                                    if let Ok(refreshed) = client.enumerate_devices().await {
+                                                        if let Some(updated) = refreshed.iter().find(|d| d.object_path == device.object_path) {
+                                                            mount_points = updated.filesystem_mount_points.clone();
+                                                        }
+                                                    }
                                                 }
                                                 Err(e) => {
                                                     let error_msg = e.to_string();
@@ -166,7 +173,9 @@ async fn main() -> Result<()> {
                                                     continue;
                                                 }
                                             };
-                                            guard.push(device.clone());
+                                            let mut device_clone = device.clone();
+                                            device_clone.filesystem_mount_points = mount_points;
+                                            guard.push(device_clone);
                                         }
                                         update_tray_devices(&handle, &devices).await;
                                     }
@@ -400,6 +409,55 @@ async fn main() -> Result<()> {
                                                     .collect();
                                             }
                                             update_tray_devices(&handle, &devices).await;
+
+                                            // Auto-mount the cleartext device
+                                            if let Some(ct_device) = devices.read().ok().and_then(|g| {
+                                                g.iter().find(|d| d.object_path == cleartext_path).cloned()
+                                            }) {
+                                                if !ct_device.is_mounted() {
+                                                    let ct_label = if ct_device.label.is_empty() {
+                                                        ct_device.block_device.clone()
+                                                    } else {
+                                                        ct_device.label.clone()
+                                                    };
+                                                    info!("Auto-mounting cleartext device: {}", ct_device.object_path);
+                                                    match client.mount_device(ct_device.object_path.clone()).await {
+                                                        Ok(mount_point) => {
+                                                            info!("Successfully mounted cleartext at {}", mount_point);
+                                                            notify::notify_mount_success(ct_label.clone(), mount_point).await;
+                                                            // Refresh mount points
+                                                            if let Ok(refreshed) = client.enumerate_devices().await {
+                                                                {
+                                                                    let mut guard = match devices.write() {
+                                                                        Ok(g) => g,
+                                                                        Err(e) => {
+                                                                            error!("Failed to acquire write lock: {}", e);
+                                                                            continue;
+                                                                        }
+                                                                    };
+                                                                    if let Some(d) = guard.iter_mut().find(|d| d.object_path == ct_device.object_path) {
+                                                                        d.filesystem_mount_points = refreshed
+                                                                            .iter()
+                                                                            .find(|d| d.object_path == ct_device.object_path)
+                                                                            .map(|d| d.filesystem_mount_points.clone())
+                                                                            .unwrap_or_default();
+                                                                    }
+                                                                }
+                                                                update_tray_devices(&handle, &devices).await;
+                                                            }
+                                                        }
+                                                        Err(e) => {
+                                                            let error_msg = e.to_string();
+                                                            if error_msg.contains("AlreadyMounted") {
+                                                                info!("Cleartext device already mounted");
+                                                            } else {
+                                                                error!("Failed to mount cleartext device: {}", error_msg);
+                                                                notify::notify_mount_error(ct_label.clone(), error_msg).await;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                     Err(e) => {
