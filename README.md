@@ -244,6 +244,59 @@ riskie daemon
 - `tracing` - Logging and tracing
 - `anyhow` - Error handling
 
+## Troubleshooting
+
+### Collecting Logs for Bug Reports
+
+When reporting issues, please include relevant logs to help diagnose the problem.
+
+#### Enable Verbose Logging
+
+```bash
+# Run with verbose logging
+RUST_LOG=info riskie
+
+# For more detailed debug output
+RUST_LOG=debug riskie
+```
+
+#### Collect Logs from Systemd
+
+If running as a systemd user service:
+
+```bash
+# View recent logs
+journalctl --user -u riskie -n 100
+
+# Follow logs in real-time
+journalctl --user -u riskie -f
+
+# Save logs to file
+journalctl --user -u riskie --since "1 hour ago" > riskie-logs.txt
+```
+
+#### Attaching Logs to GitHub Issues
+
+1. Run riskie with verbose logging enabled
+2. Reproduce the issue
+3. Copy the relevant log output
+4. In your GitHub issue, paste logs inside triple backticks:
+
+```
+<details>
+<summary>Click to expand logs</summary>
+
+```log
+2026-03-26T21:09:16.781805Z  INFO riskie: Starting riskie daemon...
+2026-03-26T21:09:16.783434Z  INFO riskie: Connected to system D-Bus
+...
+```
+
+</details>
+```
+
+This keeps the issue readable while providing all necessary debugging information.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE)
