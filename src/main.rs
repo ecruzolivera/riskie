@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
@@ -65,8 +66,20 @@ async fn main() -> Result<()> {
                 return Err(anyhow::anyhow!("Failed to acquire write lock: {}", e));
             }
         };
+        let removable_encrypted_paths: HashSet<String> = all_devices
+            .iter()
+            .filter(|d| d.is_removable() && d.is_encrypted())
+            .map(|d| d.object_path.clone())
+            .collect();
         for device in all_devices {
-            if device.is_removable() {
+            if device.is_removable()
+                || (device.is_cleartext()
+                    && device
+                        .crypto_backing_device
+                        .as_ref()
+                        .map(|b| removable_encrypted_paths.contains(b))
+                        .unwrap_or(false))
+            {
                 info!(
                     "Found removable device: {} ({})",
                     device.block_device, device.label
@@ -366,7 +379,25 @@ async fn main() -> Result<()> {
                                                         continue;
                                                     }
                                                 };
-                                                *guard = all_devices.into_iter().filter(|d| d.is_removable()).collect();
+                                                let removable_encrypted_paths: HashSet<String> =
+                                                    all_devices
+                                                        .iter()
+                                                        .filter(|d| d.is_removable() && d.is_encrypted())
+                                                        .map(|d| d.object_path.clone())
+                                                        .collect();
+                                                *guard = all_devices
+                                                    .into_iter()
+                                                    .filter(|d| {
+                                                        d.is_removable()
+                                                            || (d.is_cleartext()
+                                                                && d.crypto_backing_device
+                                                                    .as_ref()
+                                                                    .map(|b| {
+                                                                        removable_encrypted_paths.contains(b)
+                                                                    })
+                                                                    .unwrap_or(false))
+                                                    })
+                                                    .collect();
                                             }
                                             update_tray_devices(&handle, &devices).await;
                                         }
@@ -400,7 +431,22 @@ async fn main() -> Result<()> {
                                                 continue;
                                             }
                                         };
-                                        *guard = all_devices.into_iter().filter(|d| d.is_removable()).collect();
+                                        let removable_encrypted_paths: HashSet<String> = all_devices
+                                            .iter()
+                                            .filter(|d| d.is_removable() && d.is_encrypted())
+                                            .map(|d| d.object_path.clone())
+                                            .collect();
+                                        *guard = all_devices
+                                            .into_iter()
+                                            .filter(|d| {
+                                                d.is_removable()
+                                                    || (d.is_cleartext()
+                                                        && d.crypto_backing_device
+                                                            .as_ref()
+                                                            .map(|b| removable_encrypted_paths.contains(b))
+                                                            .unwrap_or(false))
+                                            })
+                                            .collect();
                                     }
                                     update_tray_devices(&handle, &devices).await;
                                 }
