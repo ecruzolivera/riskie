@@ -418,6 +418,53 @@ async fn main() -> Result<()> {
                     }
                     tray::TrayCommand::Lock(path) => {
                         info!("Lock command for: {}", path);
+
+                        // Find the cleartext device for this encrypted device
+                        let cleartext_info: Option<(String, String, bool)> = {
+                            let guard = match devices.read() {
+                                Ok(g) => g,
+                                Err(e) => {
+                                    error!("Failed to acquire read lock: {}", e);
+                                    continue;
+                                }
+                            };
+                            guard.iter()
+                                .find(|d| d.object_path == path)
+                                .and_then(|encrypted_dev| {
+                                    encrypted_dev.cleartext_device.as_ref().and_then(|ct_path| {
+                                        guard.iter()
+                                            .find(|d| &d.object_path == ct_path)
+                                            .map(|ct_dev| {
+                                                let label = if ct_dev.label.is_empty() {
+                                                    ct_dev.block_device.clone()
+                                                } else {
+                                                    ct_dev.label.clone()
+                                                };
+                                                (ct_dev.object_path.clone(), label, ct_dev.is_mounted())
+                                            })
+                                    })
+                                })
+                        };
+
+                        // Unmount cleartext device if mounted
+                        if let Some((ct_path, ct_label, is_mounted)) = &cleartext_info {
+                            if *is_mounted {
+                                info!("Unmounting cleartext device {} before locking", ct_path);
+                                match client.unmount_device(ct_path.clone()).await {
+                                    Ok(()) => {
+                                        info!("Successfully unmounted {}", ct_path);
+                                        notify::notify_unmount_success(ct_label.clone()).await;
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to unmount {}: {}", ct_path, e);
+                                        notify::notify_unmount_error(ct_label.clone(), e.to_string()).await;
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Now lock the encrypted device
                         match encrypted::lock_device(&connection, path.clone()).await {
                             Ok(()) => {
                                 info!("Locked {}", path);
