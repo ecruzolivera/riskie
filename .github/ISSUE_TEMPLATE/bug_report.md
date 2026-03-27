@@ -1,9 +1,9 @@
 ---
 name: Bug report
 about: Report a bug or issue with riskie
-title: ''
+title: ""
 labels: bug
-assignees: ''
+assignees: ""
 ---
 
 ## Describe the bug
@@ -37,6 +37,8 @@ A clear and concise description of what you expected to happen.
 - Device path (if known): [e.g., /dev/sdb1]
 
 ## Logs
+
+To get the logs run: `journalctl --user -u riskie  -b0`
 
 <details>
 <summary>Click to expand logs</summary>

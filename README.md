@@ -56,6 +56,7 @@ cargo build --release
 The binary will be at `target/release/riskie`.
 
 **Build Requirements:**
+
 - Rust toolchain (cargo, rustc)
 - gettext (for compiling translations)
 
@@ -81,6 +82,7 @@ install -Dm644 contrib/systemd/riskie.service /usr/lib/systemd/user/
 ### Dependencies
 
 **Runtime:**
+
 - **udisks2**: Must be running (standard on most Linux distributions)
 - **D-Bus**: Required for communication with udisks2
 - **gettext**: For loading translations at runtime
@@ -127,7 +129,7 @@ systemctl --user status riskie
 4. View logs:
 
 ```bash
-journalctl --user -u riskie -f
+journalctl --user -u riskie  -b0
 ```
 
 ## System Tray Usage
@@ -274,28 +276,6 @@ journalctl --user -u riskie -f
 # Save logs to file
 journalctl --user -u riskie --since "1 hour ago" > riskie-logs.txt
 ```
-
-#### Attaching Logs to GitHub Issues
-
-1. Run riskie with verbose logging enabled
-2. Reproduce the issue
-3. Copy the relevant log output
-4. In your GitHub issue, paste logs inside triple backticks:
-
-```
-<details>
-<summary>Click to expand logs</summary>
-
-```log
-2026-03-26T21:09:16.781805Z  INFO riskie: Starting riskie daemon...
-2026-03-26T21:09:16.783434Z  INFO riskie: Connected to system D-Bus
-...
-```
-
-</details>
-```
-
-This keeps the issue readable while providing all necessary debugging information.
 
 ## License
 
