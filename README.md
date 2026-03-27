@@ -19,16 +19,10 @@ riskie is a Rust implementation of udiskie, designed to be simpler and more opin
 - ✅ Multi-language support (English, Spanish)
 - ✅ Target: i3, Hyprland, Sway (minimal window managers)
 
-### Difference from udiskie
+### Main differences from udiskie
 
 - **Simpler UX**: Single-click mount/unmount from tray (no cascading menus)
-- **Opinionated defaults**:
-  - Automount ALL removable devices
-  - Mount to `/run/media/$USER/{label}` (FHS-compliant)
-  - LUKS encrypted devices: click-to-unlock with password prompt
 - **Daemon-only mode**: No one-shot mode, designed to run as a background service
-- **Modern Rust**: Better performance, smaller binary, async-first design
-- **Internationalization**: Built-in i18n support with gettext
 
 ## Installation
 
@@ -92,77 +86,6 @@ install -Dm644 contrib/systemd/riskie.service /usr/lib/systemd/user/
   - eww
   - Any StatusNotifierItem-compatible tray
 
-## Usage
-
-### Running Directly
-
-```bash
-# Run the daemon
-riskie
-
-# With verbose logging
-RUST_LOG=info riskie
-```
-
-### Systemd Service (Recommended)
-
-1. Install the service file:
-
-```bash
-# If installed from AUR, service is already installed
-# For manual installation:
-install -Dm644 contrib/systemd/riskie.service ~/.config/systemd/user/
-```
-
-2. Enable and start:
-
-```bash
-systemctl --user enable --now riskie
-```
-
-3. Check status:
-
-```bash
-systemctl --user status riskie
-```
-
-4. View logs:
-
-```bash
-journalctl --user -u riskie  -b0
-```
-
-## System Tray Usage
-
-- **Left or Right click** on the tray icon to open the menu
-- Each drive shows as a header with mount/unmount actions
-- For regular partitions:
-  - Click **Mount** to mount an unmounted partition
-  - Click **Unmount** to unmount a mounted partition
-- For encrypted devices:
-  - Click **Unlock** to unlock an encrypted device (prompts for password)
-  - Click **Lock** to lock an unlocked encrypted device
-  - Click **Eject** to safely eject an encrypted drive
-- Click **Eject** to safely remove the entire drive (unmounts all partitions)
-- Click **Exit** to quit the daemon
-
-## Desktop Notifications
-
-riskie sends desktop notifications for:
-
-- Device connected
-- Mount success/failure
-- Unmount success/failure
-- Encrypted device detected
-- Unlock success/failure
-- Drive ejected
-
-If unmount fails because the device is busy, the notification will suggest closing open files.
-
-## Localization
-
-riskie supports multiple languages using gettext. Translations are loaded from `/usr/share/locale/{lang}/LC_MESSAGES/riskie.mo`.
-
 ### Supported Languages
 
 - English (default)
@@ -191,50 +114,6 @@ Currently, riskie is opinionated and does not support configuration files. All b
 - **Mount points**: `/run/media/$USER/{device_label}` (handled by udisks2)
 - **Auto-mount**: Enabled by default for all removable devices
 - **Notifications**:Enabled by default
-
-## Development Status
-
-- **Phase 1: Core D-Bus Integration** - ✅ COMPLETE
-- **Phase 2: Device Management** - ✅ COMPLETE
-- **Phase 3: System Tray** - ✅ COMPLETE
-- **Phase 4: Error Handling & Polish** - ✅ COMPLETE
-- **Phase 5: Testing & Documentation** - ✅ COMPLETE
-- **Phase 6: Packaging & i18n** - ✅ COMPLETE
-
-## Architecture
-
-```
-riskie daemon
-├── D-Bus client (zbus)
-│   ├── Connect to udisks2
-│   ├── Listen for InterfacesAdded/Removed signals
-│   ├── Query Block/Filesystem/Encrypted interfaces
-│   └── Call Mount/Unmount/Lock/Unlock/Eject methods
-├── Device Manager
-│   ├── Track devices in Vec<Device>
-│   ├── Automount on device addition
-│   ├── Handle encrypted device unlock/lock
-│   └── Cleanup on device removal
-├── SystemTray (ksni)
-│   ├── Show icon in system tray
-│   ├── Menu: List devices with mount/unmount/eject/lock/unlock actions
-│   └── Update menu dynamically
-├── Notifications (notify-rust)
-│   ├── Device connected
-│   ├── Mount success/failure
-│   ├── Unmount success/failure
-│   ├── Unlock success/failure
-│   └── Eject success/failure
-├── Password Prompt
-│   ├── systemd-ask-password (primary)
-│   └── zenity (fallback)
-├── i18n (gettext-rs)
-│   ├── Load translations from /usr/share/locale
-│   └── Translate UI strings
-└── Mount Point Manager
-    ├── Call udisks2 Mount() method
-    └── Call udisks2 Unmount() method
-```
 
 ## Dependencies
 
